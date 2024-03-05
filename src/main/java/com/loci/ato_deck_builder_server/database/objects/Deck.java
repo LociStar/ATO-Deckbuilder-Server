@@ -12,11 +12,11 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table("char_deck")
-public class CharDeck {
+@Table("deck")
+public class Deck {
     @Id
-    @Column("id")
-    private String id;
+    @Column("deck_id")
+    private int id;
 
     @Column("title")
     private String title;
@@ -32,7 +32,4 @@ public class CharDeck {
 
     @Column("user_id")
     private String userId;
-
-    @Column("card_ids")
-    private List<String> cardIds;
 }

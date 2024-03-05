@@ -11,7 +11,7 @@ public class CharRouterConfig {
     @Bean
     protected RouterFunction<ServerResponse> charRoutes(CharHandler charHandler) {
         return RouterFunctions.route()
-                .GET("/char", charHandler::getAllDecks)
+                .GET("/char", charHandler::getCharBuilds)
                 .build();
     }
 }

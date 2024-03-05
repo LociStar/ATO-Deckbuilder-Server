@@ -1,7 +1,7 @@
 package com.loci.ato_deck_builder_server.api.card;
 
 import com.loci.ato_deck_builder_server.database.objects.Card;
-import com.loci.ato_deck_builder_server.database.repositories.CardDetailsRepository;
+import com.loci.ato_deck_builder_server.database.repositories.CardDetailRepository;
 import com.loci.ato_deck_builder_server.database.repositories.CardRepository;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.StringDecoder;
@@ -27,13 +27,13 @@ import java.nio.file.StandardOpenOption;
 @Component
 public class CardHandler {
     private final CardRepository cardRepository;
-    private final CardDetailsRepository cardDetailsRepository;
+    private final CardDetailRepository cardDetailRepository;
     private static final ResolvableType TYPE = ResolvableType.forClass(String.class);
     private static final Logger log = Loggers.getLogger(CardHandler.class);
 
-    public CardHandler(CardRepository cardRepository, CardDetailsRepository cardDetailsRepository) {
+    public CardHandler(CardRepository cardRepository, CardDetailRepository cardDetailRepository) {
         this.cardRepository = cardRepository;
-        this.cardDetailsRepository = cardDetailsRepository;
+        this.cardDetailRepository = cardDetailRepository;
     }
 
     public Mono<ServerResponse> getAllCards(ServerRequest request) {
@@ -70,7 +70,7 @@ public class CardHandler {
 
     public Mono<ServerResponse> getCardDetails(ServerRequest serverRequest) {
         String id = serverRequest.pathVariable("id");
-        return cardDetailsRepository.findById(id).flatMap(cardDetails -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(cardDetails)).switchIfEmpty(ServerResponse.notFound().build());
+        return cardDetailRepository.findById(id).flatMap(cardDetails -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(cardDetails)).switchIfEmpty(ServerResponse.notFound().build());
     }
 
     public Mono<ServerResponse> parseData(ServerRequest ignored) {

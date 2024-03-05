@@ -13,7 +13,7 @@ import org.springframework.data.relational.core.mapping.Table;
 @Table("card")
 public class Card {
     @Id
-    @Column("id")
+    @Column("card_id")
     private String id;
 
     @Column("name")

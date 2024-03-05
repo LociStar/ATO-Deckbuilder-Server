@@ -11,8 +11,8 @@ import org.springframework.data.relational.core.mapping.Table;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table("card_details")
-public class CardDetails {
+@Table("card_detail")
+public class CardDetail {
     @Column("ac_energy_bonus")
     @JsonProperty("AcEnergyBonus")
     private String acEnergyBonus;
@@ -429,7 +429,7 @@ public class CardDetails {
     private boolean healSpecialValueGlobal;
 
     @Id
-    @Column("id")
+    @Column("card_id")
     private String id;
 
     @Column("ignore_block")
