@@ -12,7 +12,7 @@ public class CardRouterConfig {
     @Bean
     protected RouterFunction<ServerResponse> cardRoutes(CardHandler cardHandler) {
         return RouterFunctions.route()
-                .GET("/card", cardHandler::getAllCards)
+                .GET("/card", cardHandler::getFilteredCards)
                 .GET("/cardClass/{id}", cardHandler::getCardsByCardClass)
                 //.GET("/card/{id}/details", cardHandler::getCardDetails)
                 .GET("/image/{id}", cardHandler::getCardImageUrl)
