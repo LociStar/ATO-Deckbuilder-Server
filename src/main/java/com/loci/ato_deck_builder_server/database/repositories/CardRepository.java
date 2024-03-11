@@ -1,6 +1,7 @@
 package com.loci.ato_deck_builder_server.database.repositories;
 
 import com.loci.ato_deck_builder_server.database.objects.Card;
+import com.loci.ato_deck_builder_server.database.objects.CardWeb;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import reactor.core.publisher.Flux;
@@ -32,10 +33,20 @@ public interface CardRepository extends R2dbcRepository<Card, String> {
     Flux<Card> findPage(int limit, long offset);
 
     @Query("""
-            SELECT * FROM card
-            WHERE name ILIKE $1
-            ORDER BY card_id
-            LIMIT $2 OFFSET $3
-            """)
-    Flux<Card> findByNameContaining(String name, int limit, long offset);
+        SELECT
+            card.*,
+            card_detail.card_rarity AS rarity,
+            original_card_details.card_rarity AS originalRarity
+        FROM
+            card
+                JOIN
+            card_detail ON card.card_id = card_detail.card_id
+                LEFT JOIN
+            card_detail AS original_card_details ON LOWER(card_detail.upgraded_from) = original_card_details.card_id
+        WHERE card.name ILIKE $1
+        AND card.class LIKE $4 OR card.class = $5
+        ORDER BY card.card_id
+        LIMIT $2 OFFSET $3
+        """)
+    Flux<CardWeb> findByNameContaining(String name, int limit, long offset, String charClass, String secondaryCharClass);
 }
