@@ -12,6 +12,8 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 @Configuration
 @EnableWebFluxSecurity
 public class JWTSecurityConfig {
@@ -21,7 +23,14 @@ public class JWTSecurityConfig {
     @Bean
     SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
-                .csrf(ServerHttpSecurity.CsrfSpec::disable);
+                .authorizeExchange(exchanges ->
+                        exchanges.anyExchange()
+                                .authenticated())
+                .oauth2ResourceServer(oauth2ResourceServer ->
+                        oauth2ResourceServer
+                                .jwt(withDefaults())
+                );
+//                .csrf(ServerHttpSecurity.CsrfSpec::disable);
         return http.build();
     }
 
