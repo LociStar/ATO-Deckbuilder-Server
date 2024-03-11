@@ -1,6 +1,7 @@
 package com.loci.ato_deck_builder_server.api.card;
 
 import com.loci.ato_deck_builder_server.database.objects.Card;
+import com.loci.ato_deck_builder_server.database.objects.CardWeb;
 import com.loci.ato_deck_builder_server.database.repositories.CardDetailRepository;
 import com.loci.ato_deck_builder_server.database.repositories.CardRepository;
 import org.springframework.core.ResolvableType;
@@ -36,12 +37,14 @@ public class CardHandler {
         this.cardDetailRepository = cardDetailRepository;
     }
 
-    public Mono<ServerResponse> getAllCards(ServerRequest request) {
+    public Mono<ServerResponse> getFilteredCards(ServerRequest request) {
         int page = Integer.parseInt(request.queryParam("page").orElse("0"));
         int size = Integer.parseInt(request.queryParam("size").orElse("10"));
         String searchQuery = "%" + request.queryParam("searchQuery").orElse("") + "%";
+        String charClass = "%" + request.queryParam("charClass").orElse("") + "%";
+        String secondaryCharClass = request.queryParam("secondaryCharClass").orElse("");
         Pageable pageable = PageRequest.of(page, size);
-        Flux<Card> cards = cardRepository.findByNameContaining(searchQuery, pageable.getPageSize(), pageable.getOffset());
+        Flux<CardWeb> cards = cardRepository.findByNameContaining(searchQuery, pageable.getPageSize(), pageable.getOffset(), charClass, secondaryCharClass);
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(cards.collectList(), Card.class);
     }
 
