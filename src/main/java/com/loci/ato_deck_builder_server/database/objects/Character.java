@@ -15,4 +15,8 @@ public class Character {
     @Id
     @Column("character_id")
     private String characterId;
+    @Column("class")
+    private String characterClass;
+    @Column("secondary_class")
+    private String secondaryCharacterClass;
 }
