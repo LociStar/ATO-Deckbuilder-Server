@@ -1,7 +1,7 @@
 package com.loci.ato_deck_builder_server.api.card;
 
 import com.loci.ato_deck_builder_server.database.objects.Card;
-import com.loci.ato_deck_builder_server.database.objects.CardWeb;
+import com.loci.ato_deck_builder_server.database.objects.WebCard;
 import com.loci.ato_deck_builder_server.database.repositories.CardDetailRepository;
 import com.loci.ato_deck_builder_server.database.repositories.CardRepository;
 import org.springframework.core.ResolvableType;
@@ -17,8 +17,6 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Path;
@@ -30,7 +28,6 @@ public class CardHandler {
     private final CardRepository cardRepository;
     private final CardDetailRepository cardDetailRepository;
     private static final ResolvableType TYPE = ResolvableType.forClass(String.class);
-    private static final Logger log = Loggers.getLogger(CardHandler.class);
 
     public CardHandler(CardRepository cardRepository, CardDetailRepository cardDetailRepository) {
         this.cardRepository = cardRepository;
@@ -44,7 +41,7 @@ public class CardHandler {
         String charClass = "%" + request.queryParam("charClass").orElse("") + "%";
         String secondaryCharClass = request.queryParam("secondaryCharClass").orElse("");
         Pageable pageable = PageRequest.of(page, size);
-        Flux<CardWeb> cards = cardRepository.findByNameContaining(searchQuery, pageable.getPageSize(), pageable.getOffset(), charClass, secondaryCharClass);
+        Flux<WebCard> cards = cardRepository.findByNameContaining(searchQuery, pageable.getPageSize(), pageable.getOffset(), charClass, secondaryCharClass);
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(cards.collectList(), Card.class);
     }
 
