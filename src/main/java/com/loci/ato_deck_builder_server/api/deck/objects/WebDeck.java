@@ -3,6 +3,7 @@ package com.loci.ato_deck_builder_server.api.deck.objects;
 import com.loci.ato_deck_builder_server.database.objects.Card;
 import com.loci.ato_deck_builder_server.database.objects.Deck;
 import com.loci.ato_deck_builder_server.database.objects.DeckCard;
+import com.loci.ato_deck_builder_server.database.objects.WebCard;
 import lombok.*;
 
 import java.util.ArrayList;
@@ -16,7 +17,8 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WebDeck extends Deck {
-    private List<Card> cardList;
+    private List<WebCard> cardList;
+    private String username;
 
 
     /**
@@ -27,7 +29,7 @@ public class WebDeck extends Deck {
     public List<DeckCard> toDeckCards(int id) {
         Map<String, DeckCard> deckCardMap = new HashMap<>();
 
-        for (Card card : cardList) {
+        for (WebCard card : cardList) {
             DeckCard deckCard = deckCardMap.get(card.getId());
 
             if (deckCard != null) {
