@@ -1,5 +1,6 @@
 package com.loci.ato_deck_builder_server.database.repositories;
 
+import com.loci.ato_deck_builder_server.api.deck.objects.WebDeck;
 import com.loci.ato_deck_builder_server.database.objects.Deck;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
@@ -21,4 +22,10 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
             RETURNING deck_id
             """)
     Mono<Integer> insertDeck(String title, String description, String characterId, String userId);
+
+    @Query("""
+            SELECT * FROM deck
+            WHERE deck_id = $1
+            """)
+    Mono<WebDeck> findWebDeckById(int id);
 }
