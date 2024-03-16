@@ -12,6 +12,7 @@ public class DeckRouterConfig {
     protected RouterFunction<ServerResponse> charRoutes(DeckHandler deckHandler) {
         return RouterFunctions.route()
                 .GET("/deck", deckHandler::getDecks)
+                .GET("/deck/{id}", deckHandler::getDeckDetails)
                 .PUT("/deck/upload", deckHandler::uploadDeck)
                 .build();
     }
