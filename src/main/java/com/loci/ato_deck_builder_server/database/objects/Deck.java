@@ -1,5 +1,6 @@
 package com.loci.ato_deck_builder_server.database.objects;
 
+import com.loci.ato_deck_builder_server.api.deck.objects.WebDeck;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
@@ -32,4 +33,15 @@ public class Deck {
 
     @Column("user_id")
     private String userId;
+
+    public WebDeck toWebDeck() {
+        WebDeck webDeck = new WebDeck();
+        webDeck.setId(this.getId());
+        webDeck.setTitle(this.getTitle());
+        webDeck.setDescription(this.getDescription());
+        webDeck.setLikes(this.getLikes());
+        webDeck.setCharacterId(this.getCharacterId());
+        webDeck.setUserId(this.getUserId());
+        return webDeck;
+    }
 }
