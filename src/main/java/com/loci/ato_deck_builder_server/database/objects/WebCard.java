@@ -12,4 +12,5 @@ public class WebCard extends Card {
     private String rarity;
     @Column("originalRarity")
     private String originalRarity;
+    private int energyCost;
 }
