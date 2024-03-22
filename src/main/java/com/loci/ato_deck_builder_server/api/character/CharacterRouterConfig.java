@@ -13,6 +13,7 @@ public class CharacterRouterConfig {
     protected RouterFunction<ServerResponse> characterRoutes(CharacterHandler characterHandler) {
         return RouterFunctions.route()
                 .GET("/character", characterHandler::getAllCharacters)
+                .GET("/character/image/{id}", characterHandler::getCharacterImage)
                 .build();
     }
 }
