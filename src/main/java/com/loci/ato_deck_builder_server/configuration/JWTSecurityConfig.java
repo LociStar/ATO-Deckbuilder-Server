@@ -6,6 +6,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -24,8 +25,10 @@ public class JWTSecurityConfig {
     SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
                 .authorizeExchange(exchanges ->
-                        exchanges.anyExchange()
-                                .authenticated())
+                        exchanges
+                                .pathMatchers(HttpMethod.PUT).authenticated()
+                                .pathMatchers(HttpMethod.POST).authenticated()
+                                .anyExchange().permitAll())
                 .oauth2ResourceServer(oauth2ResourceServer ->
                         oauth2ResourceServer
                                 .jwt(withDefaults())
@@ -43,7 +46,7 @@ public class JWTSecurityConfig {
         corsConfig.addAllowedMethod(HttpMethod.GET);
         corsConfig.addAllowedMethod(HttpMethod.POST);
         corsConfig.addAllowedMethod(HttpMethod.OPTIONS);
-        corsConfig.setAllowedOrigins(List.of(FRONTEND_LOCALHOST, "http://localhost:5173", "localhost:8080"));
+        corsConfig.setAllowedOrigins(List.of(FRONTEND_LOCALHOST, "http://localhost:5173", "http://localhost:8080", "http://localhost:4173", "http://192.168.2.149:4173", "http://192.168.2.149:5173"));
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
