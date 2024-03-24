@@ -36,6 +36,7 @@ public interface CardRepository extends R2dbcRepository<Card, String> {
         SELECT
             card.*,
             card_detail.card_rarity AS rarity,
+            card_detail.energy_cost AS energyCost,
             original_card_details.card_rarity AS originalRarity
         FROM
             card
