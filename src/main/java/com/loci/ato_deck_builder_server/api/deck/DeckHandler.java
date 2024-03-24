@@ -42,11 +42,11 @@ public class DeckHandler {
         int page = Integer.parseInt(request.queryParam("page").orElse("0"));
         int size = Integer.parseInt(request.queryParam("size").orElse("10"));
         String searchQuery = "%" + request.queryParam("searchQuery").orElse("") + "%";
-        int upgradeCostReduction = Integer.parseInt(request.queryParam("upgradeCostReduction").orElse("0"));
-        int craftingCostReduction = Integer.parseInt(request.queryParam("craftingCostReduction").orElse("0"));
         Pageable pageable = PageRequest.of(page, size);
         Flux<Deck> decks = deckRepository.findByTitleContaining(searchQuery, pageable.getPageSize(), pageable.getOffset());
-        return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(decks.collectList(), Deck.class);
+        Flux<WebDeck> webDecks = decks.flatMap(deck -> getUsername(deck)
+                .map(username -> createWebDeck(deck, new ArrayList<>(), username)));
+        return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(webDecks.collectList(), WebDeck.class);
     }
 
     public Mono<ServerResponse> uploadDeck(ServerRequest request) {
@@ -56,12 +56,11 @@ public class DeckHandler {
                 .flatMap(webDeck -> {
                     Mono<Integer> savedDeck = authenticationMono.flatMap(authentication -> deckRepository.insertDeck(webDeck.getTitle(), webDeck.getDescription(), webDeck.getCharacterId(), authentication.getName()));
 
-                    return savedDeck.map(id -> {
+                    return savedDeck.flatMap(id -> {
                         List<DeckCard> cards = webDeck.toDeckCards(id);
-                        return deckCardRepository.saveAll(cards);
+                        return deckCardRepository.saveAll(cards).then(ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(id));
                     });
-                }).flatMap(Flux::collectList)
-                .then(ServerResponse.ok().build());
+                });
     }
 
     public Mono<ServerResponse> getDeckDetails(ServerRequest serverRequest) {
