@@ -16,7 +16,7 @@ public class CardRouterConfig {
                 .GET("/cardClass/{id}", cardHandler::getCardsByCardClass)
                 //.GET("/card/{id}/details", cardHandler::getCardDetails)
                 .GET("/image/{id}", cardHandler::getCardImageUrl)
-                .OPTIONS("/parseData", cardHandler::parseData)
+                //.OPTIONS("/parseData", cardHandler::parseData)
                 //.OPTIONS("/parseDetailsData", cardHandler::parseDetailsData)
                 .build();
     }
