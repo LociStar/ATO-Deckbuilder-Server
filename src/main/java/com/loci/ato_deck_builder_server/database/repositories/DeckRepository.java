@@ -28,4 +28,19 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
             WHERE deck_id = $1
             """)
     Mono<WebDeck> findWebDeckById(int id);
+
+    @Query("INSERT INTO deck_likes (deck_id, user_id) VALUES ($1, $2)")
+    Mono<Void> insertLike(int id, String userId);
+
+    @Query("UPDATE deck SET likes = likes + 1 WHERE deck_id = $1")
+    Mono<Void> incrementLikes(int id);
+
+    @Query("DELETE FROM deck_likes WHERE deck_id = $1 AND user_id = $2")
+    Mono<Void> removeLike(int id, String userId);
+
+    @Query("UPDATE deck SET likes = likes - 1 WHERE deck_id = $1")
+    Mono<Void> decrementLikes(int id);
+
+    @Query("SELECT COUNT(*) FROM deck_likes WHERE deck_id = $1 AND user_id = $2")
+    Mono<Integer> countLikes(int id, String userId);
 }
