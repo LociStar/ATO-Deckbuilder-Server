@@ -94,4 +94,50 @@ public class DeckHandler {
         webDeck.setUsername(username);
         return webDeck;
     }
+
+    public Mono<ServerResponse> likeDeck(ServerRequest serverRequest) {
+        Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
+                .map(SecurityContext::getAuthentication);
+        return authenticationMono.flatMap(authentication -> {
+            int id = Integer.parseInt(serverRequest.pathVariable("id"));
+            return deckRepository.countLikes(id, authentication.getName())
+                    .flatMap(count -> {
+                        if (count == 0) {
+                            return deckRepository.insertLike(id, authentication.getName())
+                                    .then(deckRepository.incrementLikes(id))
+                                    .then(ServerResponse.ok().build());
+                        } else {
+                            return ServerResponse.ok().build();
+                        }
+                    });
+        });
+    }
+
+    public Mono<ServerResponse> unlikeDeck(ServerRequest serverRequest) {
+        Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
+                .map(SecurityContext::getAuthentication);
+        return authenticationMono.flatMap(authentication -> {
+            int id = Integer.parseInt(serverRequest.pathVariable("id"));
+            return deckRepository.countLikes(id, authentication.getName())
+                    .flatMap(count -> {
+                        if (count == 1) {
+                            return deckRepository.removeLike(id, authentication.getName())
+                                    .then(deckRepository.decrementLikes(id))
+                                    .then(ServerResponse.ok().build());
+                        } else {
+                            return ServerResponse.ok().build();
+                        }
+                    });
+        });
+    }
+
+    public Mono<ServerResponse> isLiked(ServerRequest serverRequest) {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(SecurityContext::getAuthentication)
+                .flatMap(authentication -> {
+                    int id = Integer.parseInt(serverRequest.pathVariable("id"));
+                    return deckRepository.countLikes(id, authentication.getName())
+                            .flatMap(count -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(count == 1));
+                });
+    }
 }
