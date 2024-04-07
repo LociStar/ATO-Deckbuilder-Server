@@ -28,6 +28,8 @@ public class JWTSecurityConfig {
                         exchanges
                                 .pathMatchers(HttpMethod.PUT).authenticated()
                                 .pathMatchers(HttpMethod.POST).authenticated()
+                                .pathMatchers(HttpMethod.GET, "/deck/*/is_liked").authenticated()
+                                .pathMatchers(HttpMethod.DELETE).authenticated()
                                 .anyExchange().permitAll())
                 .oauth2ResourceServer(oauth2ResourceServer ->
                         oauth2ResourceServer
