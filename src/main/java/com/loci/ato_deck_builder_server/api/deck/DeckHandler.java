@@ -1,7 +1,7 @@
 package com.loci.ato_deck_builder_server.api.deck;
 
+import com.loci.ato_deck_builder_server.api.deck.objects.PagedWebDeck;
 import com.loci.ato_deck_builder_server.api.deck.objects.WebDeck;
-import com.loci.ato_deck_builder_server.database.objects.Card;
 import com.loci.ato_deck_builder_server.database.objects.Deck;
 import com.loci.ato_deck_builder_server.database.objects.DeckCard;
 import com.loci.ato_deck_builder_server.database.objects.WebCard;
@@ -24,6 +24,9 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * DeckHandler is a component that handles all the operations related to Decks.
+ */
 @Component
 public class DeckHandler {
     private final DeckRepository deckRepository;
@@ -31,6 +34,13 @@ public class DeckHandler {
     private final DeckCardRepository deckCardRepository;
     private final KeycloakService keycloakService;
 
+    /**
+     * Constructor for DeckHandler.
+     *
+     * @param deckRepository      Repository for Deck operations.
+     * @param cardRepository      Repository for Card operations.
+     * @param deckCardRepository  Repository for DeckCard operations.
+     */
     public DeckHandler(DeckRepository deckRepository, CardRepository cardRepository, DeckCardRepository deckCardRepository) {
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
@@ -38,17 +48,66 @@ public class DeckHandler {
         this.keycloakService = new KeycloakService();
     }
 
+    /**
+     * Handles the GET request to fetch Decks.
+     *
+     * @param request  The incoming ServerRequest.
+     * @return         A ServerResponse containing the requested Decks.
+     */
     public Mono<ServerResponse> getDecks(ServerRequest request) {
-        int page = Integer.parseInt(request.queryParam("page").orElse("0"));
+        int page = Integer.parseInt(request.queryParam("page").orElse("0")) - 1;
         int size = Integer.parseInt(request.queryParam("size").orElse("10"));
-        String searchQuery = "%" + request.queryParam("searchQuery").orElse("") + "%";
         Pageable pageable = PageRequest.of(page, size);
-        Flux<Deck> decks = deckRepository.findByTitleContaining(searchQuery, pageable.getPageSize(), pageable.getOffset());
+        String searchQuery = "%" + request.queryParam("searchQuery").orElse("") + "%";
+        String charId = "%" + request.queryParam("charId").orElse("") + "%";
+        boolean sortByLikesFirst = Boolean.parseBoolean(request.queryParam("sortByLikesFirst").orElse(""));
+
+        // Get the decks
+        Flux<Deck> decks = deckRepository.findByTitle(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId);
+
+        // Convert the decks to WebDecks (Add username)
         Flux<WebDeck> webDecks = decks.flatMap(deck -> getUsername(deck)
                 .map(username -> createWebDeck(deck, new ArrayList<>(), username)));
-        return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(webDecks.collectList(), WebDeck.class);
+
+        // Sort the decks
+        webDecks = sortWebDecks(webDecks, sortByLikesFirst);
+
+        // Create a PagedWebDeck object
+        Mono<PagedWebDeck> pagedWebDeckMono = webDecks.collectList().map(webDeckList -> {
+            // Calculate the total number of pages
+            int totalPages = (int) Math.ceil((double) (webDeckList.size() + 1) / size);
+            return new PagedWebDeck(webDeckList, totalPages);
+        });
+
+        return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(pagedWebDeckMono, PagedWebDeck.class);
     }
 
+    /**
+     * Sorts the WebDecks based on the provided sorting order.
+     *
+     * @param webDecks           The WebDecks to be sorted.
+     * @param sortByLikesFirst   The sorting order.
+     * @return                   The sorted WebDecks.
+     */
+    private static Flux<WebDeck> sortWebDecks(Flux<WebDeck> webDecks, boolean sortByLikesFirst) {
+        webDecks = webDecks.sort((o1, o2) -> {
+            if (sortByLikesFirst) {
+                // Sort by likes first, then by title
+                return o2.getLikes() - o1.getLikes() == 0 ? o1.getTitle().compareTo(o2.getTitle()) : o2.getLikes() - o1.getLikes();
+            } else {
+                // Sort by title first, then by likes
+                return o1.getTitle().compareTo(o2.getTitle()) == 0 ? o2.getLikes() - o1.getLikes() : o1.getTitle().compareTo(o2.getTitle());
+            }
+        });
+        return webDecks;
+    }
+
+    /**
+     * Handles the POST request to upload a Deck.
+     *
+     * @param request  The incoming ServerRequest.
+     * @return         A ServerResponse indicating the result of the operation.
+     */
     public Mono<ServerResponse> uploadDeck(ServerRequest request) {
         Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication);
@@ -63,6 +122,12 @@ public class DeckHandler {
                 });
     }
 
+    /**
+     * Handles the GET request to fetch the details of a specific Deck.
+     *
+     * @param serverRequest  The incoming ServerRequest.
+     * @return               A ServerResponse containing the requested Deck details.
+     */
     public Mono<ServerResponse> getDeckDetails(ServerRequest serverRequest) {
         int id = Integer.parseInt(serverRequest.pathVariable("id"));
         Mono<Deck> deckMono = deckRepository.findById(id);
@@ -70,6 +135,7 @@ public class DeckHandler {
         return deckMono.flatMap(this::createWebDeck)
                 .flatMap(webDeck -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(webDeck));
     }
+
 
     private Mono<WebDeck> createWebDeck(Deck deck) {
         return getDeckCards(deck)
@@ -95,6 +161,12 @@ public class DeckHandler {
         return webDeck;
     }
 
+    /**
+     * Handles the POST request to like a Deck.
+     *
+     * @param serverRequest  The incoming ServerRequest.
+     * @return               A ServerResponse indicating the result of the operation.
+     */
     public Mono<ServerResponse> likeDeck(ServerRequest serverRequest) {
         Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication);
@@ -113,6 +185,12 @@ public class DeckHandler {
         });
     }
 
+    /**
+     * Handles the POST request to unlike a Deck.
+     *
+     * @param serverRequest  The incoming ServerRequest.
+     * @return               A ServerResponse indicating the result of the operation.
+     */
     public Mono<ServerResponse> unlikeDeck(ServerRequest serverRequest) {
         Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication);
@@ -131,6 +209,12 @@ public class DeckHandler {
         });
     }
 
+    /**
+     * Handles the GET request to check if a Deck is liked by the current user.
+     *
+     * @param serverRequest  The incoming ServerRequest.
+     * @return               A ServerResponse indicating whether the Deck is liked.
+     */
     public Mono<ServerResponse> isLiked(ServerRequest serverRequest) {
         return ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication)
