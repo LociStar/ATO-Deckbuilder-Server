@@ -5,6 +5,7 @@ import org.springframework.http.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,6 +14,8 @@ public class KeycloakService {
     private final WebClient webClient;
     private final String clientId = System.getenv("keycloak_clientId");
     private final String clientSecret = System.getenv("keycloak_clientSecret");
+    private static String accessToken;
+    private static Instant tokenExpiryTime;
 
     public KeycloakService() {
         String keycloakUrl = System.getenv("keycloak_base_url");
@@ -40,16 +43,27 @@ public class KeycloakService {
     }
 
     private Mono<String> getToken() {
+        // If the token is not null, and it's not expired, return it
+        if (accessToken != null && Instant.now().isBefore(tokenExpiryTime)) {
+            return Mono.just(accessToken);
+        }
+
+        // Otherwise, request a new token
         Mono<String> responseMono = webClient.post()
                 .uri("/realms/ATO-Deckbuilder/protocol/openid-connect/token")
                 .headers(httpHeaders -> httpHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED))
-                //.header("Content-Type", "application/x-www-form-urlencoded")
                 .headers(httpHeaders -> httpHeaders.setBasicAuth(clientId, clientSecret))
                 .bodyValue("grant_type=client_credentials")
                 .retrieve()
                 .bodyToMono(String.class);
 
-        return responseMono.map(s -> new JSONObject(s).getString("access_token"));
+        return responseMono.map(s -> {
+            JSONObject json = new JSONObject(s);
+            accessToken = json.getString("access_token");
+            int expiresIn = json.getInt("expires_in"); // Get the expiry time in seconds
+            tokenExpiryTime = Instant.now().plusSeconds(expiresIn - 60); // Subtract 60 seconds to account for possible delays
+            return accessToken;
+        });
     }
 
     public Mono<String> updateUser(String userId, String username, String email) {
