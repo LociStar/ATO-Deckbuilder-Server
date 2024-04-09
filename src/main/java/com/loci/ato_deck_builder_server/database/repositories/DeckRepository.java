@@ -12,9 +12,18 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
     @Query("""
             SELECT * FROM deck
             WHERE title ILIKE $1 AND char_id LIKE $4
+            ORDER BY likes DESC, title
             LIMIT $2 OFFSET $3
             """)
-    Flux<Deck> findByTitle(String name, int limit, long offset, String charId);
+    Flux<Deck> findByTitle_likes(String name, int limit, long offset, String charId);
+
+    @Query("""
+            SELECT * FROM deck
+            WHERE title ILIKE $1 AND char_id LIKE $4
+            ORDER BY title
+            LIMIT $2 OFFSET $3
+            """)
+    Flux<Deck> findByTitle_title(String name, int limit, long offset, String charId);
 
     @Query("""
             INSERT INTO deck (title, description, char_id, user_id)

@@ -22,6 +22,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -60,46 +61,26 @@ public class DeckHandler {
         Pageable pageable = PageRequest.of(page, size);
         String searchQuery = "%" + request.queryParam("searchQuery").orElse("") + "%";
         String charId = "%" + request.queryParam("charId").orElse("") + "%";
-        boolean sortByLikesFirst = Boolean.parseBoolean(request.queryParam("sortByLikesFirst").orElse(""));
+        boolean sortByLikesFirst = Boolean.parseBoolean(request.queryParam("sortByLikesFirst").orElse("true"));
 
         // Get the decks
-        Flux<Deck> decks = deckRepository.findByTitle(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId);
+        Flux<Deck> decks = sortByLikesFirst ?
+                deckRepository.findByTitle_likes(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId) :
+                deckRepository.findByTitle_title(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId);
 
         // Convert the decks to WebDecks (Add username)
-        Flux<WebDeck> webDecks = decks.flatMap(deck -> getUsername(deck)
+        Flux<WebDeck> webDecks = decks.flatMapSequential(deck -> getUsername(deck)
                 .map(username -> createWebDeck(deck, new ArrayList<>(), username)));
-
-        // Sort the decks
-        webDecks = sortWebDecks(webDecks, sortByLikesFirst);
 
         // Create a PagedWebDeck object
         Mono<PagedWebDeck> pagedWebDeckMono = webDecks.collectList().map(webDeckList -> {
+            System.out.println(Arrays.toString(webDeckList.stream().map(WebDeck::getTitle).toArray()));
             // Calculate the total number of pages
             int totalPages = (int) Math.ceil((double) (webDeckList.size() + 1) / size);
             return new PagedWebDeck(webDeckList, totalPages);
         });
 
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(pagedWebDeckMono, PagedWebDeck.class);
-    }
-
-    /**
-     * Sorts the WebDecks based on the provided sorting order.
-     *
-     * @param webDecks           The WebDecks to be sorted.
-     * @param sortByLikesFirst   The sorting order.
-     * @return                   The sorted WebDecks.
-     */
-    private static Flux<WebDeck> sortWebDecks(Flux<WebDeck> webDecks, boolean sortByLikesFirst) {
-        webDecks = webDecks.sort((o1, o2) -> {
-            if (sortByLikesFirst) {
-                // Sort by likes first, then by title
-                return o2.getLikes() - o1.getLikes() == 0 ? o1.getTitle().compareTo(o2.getTitle()) : o2.getLikes() - o1.getLikes();
-            } else {
-                // Sort by title first, then by likes
-                return o1.getTitle().compareTo(o2.getTitle()) == 0 ? o2.getLikes() - o1.getLikes() : o1.getTitle().compareTo(o2.getTitle());
-            }
-        });
-        return webDecks;
     }
 
     /**
