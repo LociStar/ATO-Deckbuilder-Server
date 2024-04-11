@@ -22,7 +22,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -61,12 +60,23 @@ public class DeckHandler {
         Pageable pageable = PageRequest.of(page, size);
         String searchQuery = "%" + request.queryParam("searchQuery").orElse("") + "%";
         String charId = "%" + request.queryParam("charId").orElse("") + "%";
+        String ownedFilter = request.queryParam("ownedFilter").orElse("all").toLowerCase();
+        String userName = request.queryParam("userName").orElse("");
         boolean sortByLikesFirst = Boolean.parseBoolean(request.queryParam("sortByLikesFirst").orElse("true"));
 
         // Get the decks
         Flux<Deck> decks = sortByLikesFirst ?
                 deckRepository.findByTitle_likes(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId) :
                 deckRepository.findByTitle_title(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId);
+        if (ownedFilter.equals("owned")) {
+            decks = getUserId(userName).flatMapMany(userId -> sortByLikesFirst ?
+                    deckRepository.findByTitle_likes(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId, userId) :
+                    deckRepository.findByTitle_title(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId, userId));
+        } else if (ownedFilter.equals("unowned")) {
+            decks = getUserId(userName).flatMapMany(userId -> sortByLikesFirst ?
+                    deckRepository.findByTitle_likes_unowned(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId, userId) :
+                    deckRepository.findByTitle_title_unowned(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId, userId));
+        }
 
         // Convert the decks to WebDecks (Add username)
         Flux<WebDeck> webDecks = decks.flatMapSequential(deck -> getUsername(deck)
@@ -74,7 +84,6 @@ public class DeckHandler {
 
         // Create a PagedWebDeck object
         Mono<PagedWebDeck> pagedWebDeckMono = webDecks.collectList().map(webDeckList -> {
-            System.out.println(Arrays.toString(webDeckList.stream().map(WebDeck::getTitle).toArray()));
             // Calculate the total number of pages
             int totalPages = (int) Math.ceil((double) (webDeckList.size() + 1) / size);
             return new PagedWebDeck(webDeckList, totalPages);
@@ -133,6 +142,10 @@ public class DeckHandler {
 
     private Mono<String> getUsername(Deck deck) {
         return keycloakService.getUsername(deck.getUserId());
+    }
+
+    private Mono<String> getUserId(String username) {
+        return keycloakService.getUserId(username);
     }
 
     private WebDeck createWebDeck(Deck deck, List<WebCard> cards, String username) {
