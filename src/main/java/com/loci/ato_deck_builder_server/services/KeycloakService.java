@@ -1,12 +1,14 @@
 package com.loci.ato_deck_builder_server.services;
 
 import org.json.JSONObject;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class KeycloakService {
@@ -20,6 +22,21 @@ public class KeycloakService {
     public KeycloakService() {
         String keycloakUrl = System.getenv("keycloak_base_url");
         this.webClient = WebClient.builder().baseUrl(keycloakUrl).build();
+    }
+
+    public Mono<String> getUserId(String username) {
+        return getToken().flatMap(token -> webClient.get()
+                        .uri("/admin/realms/ATO-Deckbuilder/users?username={username}", username)
+                        .headers(httpHeaders -> httpHeaders.setBearerAuth(token))
+                        .retrieve()
+                        .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                        }))
+                .map(s -> {
+                    if (s.isEmpty())
+                        return "";
+                    Map<String, Object> firstUser = s.getFirst();
+                    return (String) firstUser.get("id");
+                });
     }
 
     public Mono<String> getUsername(String userId) {
