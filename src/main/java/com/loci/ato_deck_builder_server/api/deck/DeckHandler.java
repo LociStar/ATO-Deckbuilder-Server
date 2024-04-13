@@ -11,6 +11,7 @@ import com.loci.ato_deck_builder_server.database.repositories.DeckRepository;
 import com.loci.ato_deck_builder_server.services.KeycloakService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -18,6 +19,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -37,9 +39,9 @@ public class DeckHandler {
     /**
      * Constructor for DeckHandler.
      *
-     * @param deckRepository      Repository for Deck operations.
-     * @param cardRepository      Repository for Card operations.
-     * @param deckCardRepository  Repository for DeckCard operations.
+     * @param deckRepository     Repository for Deck operations.
+     * @param cardRepository     Repository for Card operations.
+     * @param deckCardRepository Repository for DeckCard operations.
      */
     public DeckHandler(DeckRepository deckRepository, CardRepository cardRepository, DeckCardRepository deckCardRepository) {
         this.deckRepository = deckRepository;
@@ -51,8 +53,8 @@ public class DeckHandler {
     /**
      * Handles the GET request to fetch Decks.
      *
-     * @param request  The incoming ServerRequest.
-     * @return         A ServerResponse containing the requested Decks.
+     * @param request The incoming ServerRequest.
+     * @return A ServerResponse containing the requested Decks.
      */
     public Mono<ServerResponse> getDecks(ServerRequest request) {
         int page = Integer.parseInt(request.queryParam("page").orElse("0")) - 1;
@@ -95,8 +97,8 @@ public class DeckHandler {
     /**
      * Handles the POST request to upload a Deck.
      *
-     * @param request  The incoming ServerRequest.
-     * @return         A ServerResponse indicating the result of the operation.
+     * @param request The incoming ServerRequest.
+     * @return A ServerResponse indicating the result of the operation.
      */
     public Mono<ServerResponse> uploadDeck(ServerRequest request) {
         Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
@@ -112,11 +114,35 @@ public class DeckHandler {
                 });
     }
 
+    public Mono<ServerResponse> updateDeck(ServerRequest request) {
+        int deckId = Integer.parseInt(request.pathVariable("id"));
+        return request.bodyToMono(WebDeck.class)
+                .zipWith(ReactiveSecurityContextHolder.getContext().map(SecurityContext::getAuthentication))
+                .flatMap(tuple -> {
+                    WebDeck webDeck = tuple.getT1();
+                    Authentication authentication = tuple.getT2();
+                    return deckRepository.getUserId(deckId)
+                            .flatMap(userId -> {
+                                System.out.println(userId);
+                                if (!userId.equals(authentication.getName())) {
+                                    return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this deck"));
+                                }
+                                // Delete existing cards
+                                return deckCardRepository.deleteByDeckId(deckId)
+                                        .thenMany(Flux.fromIterable(webDeck.toDeckCards(deckId))) // Convert WebCards to DeckCards
+                                        .flatMap(deckCardRepository::save) // Save new cards
+                                        .then(deckRepository.updateDeck(deckId, webDeck.getTitle(), webDeck.getDescription(), webDeck.getCharacterId()))
+                                        .then(ServerResponse.ok().build());
+                            });
+                })
+                .onErrorResume(ResponseStatusException.class, e -> ServerResponse.status(e.getStatusCode()).bodyValue(e.getMessage()));
+    }
+
     /**
      * Handles the GET request to fetch the details of a specific Deck.
      *
-     * @param serverRequest  The incoming ServerRequest.
-     * @return               A ServerResponse containing the requested Deck details.
+     * @param serverRequest The incoming ServerRequest.
+     * @return A ServerResponse containing the requested Deck details.
      */
     public Mono<ServerResponse> getDeckDetails(ServerRequest serverRequest) {
         int id = Integer.parseInt(serverRequest.pathVariable("id"));
@@ -158,8 +184,8 @@ public class DeckHandler {
     /**
      * Handles the POST request to like a Deck.
      *
-     * @param serverRequest  The incoming ServerRequest.
-     * @return               A ServerResponse indicating the result of the operation.
+     * @param serverRequest The incoming ServerRequest.
+     * @return A ServerResponse indicating the result of the operation.
      */
     public Mono<ServerResponse> likeDeck(ServerRequest serverRequest) {
         Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
@@ -182,8 +208,8 @@ public class DeckHandler {
     /**
      * Handles the POST request to unlike a Deck.
      *
-     * @param serverRequest  The incoming ServerRequest.
-     * @return               A ServerResponse indicating the result of the operation.
+     * @param serverRequest The incoming ServerRequest.
+     * @return A ServerResponse indicating the result of the operation.
      */
     public Mono<ServerResponse> unlikeDeck(ServerRequest serverRequest) {
         Mono<Authentication> authenticationMono = ReactiveSecurityContextHolder.getContext()
@@ -206,8 +232,8 @@ public class DeckHandler {
     /**
      * Handles the GET request to check if a Deck is liked by the current user.
      *
-     * @param serverRequest  The incoming ServerRequest.
-     * @return               A ServerResponse indicating whether the Deck is liked.
+     * @param serverRequest The incoming ServerRequest.
+     * @return A ServerResponse indicating whether the Deck is liked.
      */
     public Mono<ServerResponse> isLiked(ServerRequest serverRequest) {
         return ReactiveSecurityContextHolder.getContext()
@@ -217,5 +243,21 @@ public class DeckHandler {
                     return deckRepository.countLikes(id, authentication.getName())
                             .flatMap(count -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(count == 1));
                 });
+    }
+
+    public Mono<ServerResponse> deleteDeck(ServerRequest serverRequest) {
+        return deckRepository.getUserId(Integer.parseInt(serverRequest.pathVariable("id")))
+                .zipWith(ReactiveSecurityContextHolder.getContext().map(SecurityContext::getAuthentication))
+                .flatMap(tuple -> {
+                    String userId = tuple.getT1();
+                    String username = tuple.getT2().getName();
+                    if (!userId.equals(username)) {
+                        return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this deck"));
+                    }
+                    return deckCardRepository.deleteByDeckId(Integer.parseInt(serverRequest.pathVariable("id")))
+                            .then(deckRepository.deleteById(Integer.parseInt(serverRequest.pathVariable("id")))
+                                    .then(ServerResponse.ok().build()));
+                })
+                .onErrorResume(ResponseStatusException.class, e -> ServerResponse.status(e.getStatusCode()).bodyValue(e.getMessage()));
     }
 }
