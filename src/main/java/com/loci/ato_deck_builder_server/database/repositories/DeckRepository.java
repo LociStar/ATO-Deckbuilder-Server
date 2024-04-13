@@ -4,7 +4,6 @@ import com.loci.ato_deck_builder_server.api.deck.objects.WebDeck;
 import com.loci.ato_deck_builder_server.database.objects.Deck;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
-import org.springframework.data.repository.query.Param;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -87,4 +86,17 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
 
     @Query("SELECT COUNT(d) FROM Deck d WHERE d.title LIKE $1")
     Mono<Integer> countByTitleContaining(String searchQuery);
+
+    @Query("""
+            UPDATE deck
+            SET title = $2, description = $3, char_id = $4
+            WHERE deck_id = $1
+            """)
+    Mono<Void> updateDeck(int deckId, String title, String description, String characterId);
+
+    @Query("""
+            SELECT user_id FROM deck
+            WHERE deck_id = $1
+            """)
+    Mono<String> getUserId(int deckId);
 }
