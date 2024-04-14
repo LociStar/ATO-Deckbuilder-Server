@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.loci</groupId>
     <artifactId>ato_deck_builder_server</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>ato_deck_builder_server</name>
     <description>ato_deck_builder_server</description>
     <properties>
