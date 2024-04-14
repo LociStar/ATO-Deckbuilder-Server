@@ -26,16 +26,16 @@ jobs:
       uses: docker/setup-buildx-action@v1
 
     - name: Login to Docker Registry
-      uses: docker/login-action@v1 
+      uses: docker/login-action@v3
       with:
         registry: registry.organizer-bot.com
         username: ${{ secrets.REGISTRY_USERNAME }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
 
     - name: Build and push
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v5
       with:
         context: .
         push: true
-        tags: registry.organizer-bot.com/your-repo-name:${{ env.VERSION }}
+        tags: registry.organizer-bot.com/ato-deckbuilder-server:${{ env.VERSION }}
         platforms: linux/x86_64
