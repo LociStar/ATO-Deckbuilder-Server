@@ -41,10 +41,7 @@ public class CardHandler {
         String charClass = "%" + request.queryParam("charClass").orElse("") + "%";
         String secondaryCharClass = request.queryParam("secondaryCharClass").orElse("");
         Pageable pageable = PageRequest.of(page, size);
-        Flux<WebCard> cards = cardRepository.findByNameContaining(searchQuery, pageable.getPageSize(), pageable.getOffset(), charClass, secondaryCharClass, "", "");
-        if (charClass.equals("%%")) {
-            cards = cardRepository.findByNameContaining(searchQuery, pageable.getPageSize(), pageable.getOffset(), charClass, secondaryCharClass, "Specail", "Boon");
-        }
+        Flux<WebCard> cards = cardRepository.findByNameContaining(searchQuery, pageable.getPageSize(), pageable.getOffset(), charClass, secondaryCharClass);
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(cards.collectList(), Card.class);
     }
 

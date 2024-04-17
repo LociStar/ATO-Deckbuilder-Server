@@ -45,11 +45,11 @@ public interface CardRepository extends R2dbcRepository<Card, String> {
                 LEFT JOIN
             card_detail AS original_card_details ON LOWER(card_detail.upgraded_from) = original_card_details.card_id
         WHERE card.name ILIKE $1
-        AND card.class LIKE $4 OR card.class = $5 OR card.class = $6 OR card.class = $7
+        AND (card.class LIKE $4 OR card.class = $5 OR card.class = 'Special' OR card.class = 'Boon')
         ORDER BY card.card_id
         LIMIT $2 OFFSET $3
         """)
-    Flux<WebCard> findByNameContaining(String name, int limit, long offset, String charClass, String secondaryCharClass, String special, String boon);
+    Flux<WebCard> findByNameContaining(String name, int limit, long offset, String charClass, String secondaryCharClass);
 
     @Query("""
         SELECT
