@@ -45,7 +45,7 @@ public interface CardRepository extends R2dbcRepository<Card, String> {
                 LEFT JOIN
             card_detail AS original_card_details ON LOWER(card_detail.upgraded_from) = original_card_details.card_id
         WHERE card.name ILIKE $1
-        AND card.class LIKE $4 OR card.class = $5
+        AND card.class LIKE $4 OR card.class = $5 OR card.class = 'Special' OR card.class = 'Boon'
         ORDER BY card.card_id
         LIMIT $2 OFFSET $3
         """)
