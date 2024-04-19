@@ -73,7 +73,6 @@ public class DeckHandler {
         // Check if the PagedWebDeck is in the cache
         PagedWebDeck cachedPagedWebDeck = cache.get(key);
         if (cachedPagedWebDeck != null) {
-            System.out.println("Cache hit");
             return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(cachedPagedWebDeck);
         }
 
@@ -108,9 +107,8 @@ public class DeckHandler {
         });
 
         return pagedWebDeckMono.flatMap(pagedWebDeck -> {
-            System.out.println(Arrays.toString(pagedWebDeck.getDecks().toArray()));
-            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(pagedWebDeck)
-                    .then(Mono.fromRunnable(() -> cache.put(key, pagedWebDeck)));
+            cache.put(key, pagedWebDeck);
+            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(pagedWebDeck);
         });
     }
 
