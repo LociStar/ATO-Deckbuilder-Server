@@ -10,20 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '21'
+      - name: Bump Version
+        id: bump
+        uses: nnichols/maven-version-bump-action@v5
+        with:
+          github-token: ${{ secrets.github_token }}
 
-    - name: Extract project version
-      run: echo "VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)" >> $GITHUB_ENV
-
-    - name: Build and push Docker image
-      run: |
-        docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }} ghcr.io
-        docker build -t ghcr.io/locistar/ato-deckbuilder-server:$VERSION .
-        docker push ghcr.io/locistar/ato-deckbuilder-server:$VERSION
+      - name: Build and push Docker image
+        run: |
+          docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }} ghcr.io
+          docker build -t ghcr.io/locistar/ato-deckbuilder-server:steps.bump.outputs.version .
+          docker push ghcr.io/locistar/ato-deckbuilder-server:steps.bump.outputs.version
