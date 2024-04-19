@@ -4,6 +4,8 @@ import com.loci.ato_deck_builder_server.database.objects.Card;
 import com.loci.ato_deck_builder_server.database.objects.WebCard;
 import com.loci.ato_deck_builder_server.database.repositories.CardDetailRepository;
 import com.loci.ato_deck_builder_server.database.repositories.CardRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.StringDecoder;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -18,20 +20,23 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
 import java.nio.channels.AsynchronousFileChannel;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class CardHandler {
     private final CardRepository cardRepository;
     private final CardDetailRepository cardDetailRepository;
     private static final ResolvableType TYPE = ResolvableType.forClass(String.class);
+    private final ConcurrentHashMap<String, Flux<DataBuffer>> imageCache = new ConcurrentHashMap<>();
+    private static final Logger logger = LoggerFactory.getLogger(CardHandler.class);
 
     public CardHandler(CardRepository cardRepository, CardDetailRepository cardDetailRepository) {
         this.cardRepository = cardRepository;
         this.cardDetailRepository = cardDetailRepository;
+        preloadImages();
     }
 
     public Mono<ServerResponse> getFilteredCards(ServerRequest request) {
@@ -51,19 +56,41 @@ public class CardHandler {
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(cards.collectList(), Card.class);
     }
 
+    private void preloadImages() {
+        String imagePathEnv = System.getenv("IMAGE_PATH");
+        Path dirPath = Paths.get(imagePathEnv);
+        long totalSize = 0;
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dirPath, "*.{webp}")) {
+            for (Path imagePath : stream) {
+                String id = imagePath.getFileName().toString().replace(".webp", "");
+
+                Flux<DataBuffer> imageFlux = DataBufferUtils.readAsynchronousFileChannel(
+                        () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
+                        new DefaultDataBufferFactory(), 4096);
+
+                imageCache.put(id, imageFlux);
+
+                // Add the size of the file to the total size
+                totalSize += Files.size(imagePath);
+            }
+        } catch (IOException e) {
+            logger.error("Error while preloading images", e);
+        }
+
+        // Convert the total size to MB and print it
+        double totalSizeInMB = totalSize / (1024.0 * 1024.0);
+        logger.info("Total CardsImages cache size: {} MB", totalSizeInMB);
+    }
+
     public Mono<ServerResponse> getCardImageUrl(ServerRequest request) {
         String id = request.pathVariable("id");
-
-        // Use an environment variable
         String imagePathEnv = System.getenv("IMAGE_PATH");
-        // Or use a JVM argument
-        // String imagePathArg = System.getProperty("imagePathArg");
-
         Path imagePath = Paths.get(imagePathEnv, id + ".webp");
 
-        Flux<DataBuffer> imageFlux = DataBufferUtils.readAsynchronousFileChannel(
+        Flux<DataBuffer> imageFlux = imageCache.computeIfAbsent(id, key -> DataBufferUtils.readAsynchronousFileChannel(
                 () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
-                new DefaultDataBufferFactory(), 4096);
+                new DefaultDataBufferFactory(), 4096));
 
         return ServerResponse.ok().contentType(MediaType.IMAGE_PNG).body(imageFlux, DataBuffer.class);
     }
