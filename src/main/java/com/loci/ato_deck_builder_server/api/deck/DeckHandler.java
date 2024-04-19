@@ -23,8 +23,8 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * DeckHandler is a component that handles all the operations related to Decks.
@@ -35,6 +35,8 @@ public class DeckHandler {
     private final CardRepository cardRepository;
     private final DeckCardRepository deckCardRepository;
     private final KeycloakService keycloakService;
+    private final ConcurrentHashMap<String, PagedWebDeck> cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Set<String>> deckIdToCacheKeys = new ConcurrentHashMap<>();
 
     /**
      * Constructor for DeckHandler.
@@ -66,6 +68,15 @@ public class DeckHandler {
         String userName = request.queryParam("userName").orElse("");
         boolean sortByLikesFirst = Boolean.parseBoolean(request.queryParam("sortByLikesFirst").orElse("true"));
 
+        String key = searchQuery + "-" + charId + "-" + ownedFilter + "-" + userName + "-" + sortByLikesFirst + "-" + page + "-" + size;
+
+        // Check if the PagedWebDeck is in the cache
+        PagedWebDeck cachedPagedWebDeck = cache.get(key);
+        if (cachedPagedWebDeck != null) {
+            System.out.println("Cache hit");
+            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(cachedPagedWebDeck);
+        }
+
         // Get the decks
         Flux<Deck> decks = sortByLikesFirst ?
                 deckRepository.findByTitle_likes(searchQuery, pageable.getPageSize(), pageable.getOffset(), charId) :
@@ -81,8 +92,13 @@ public class DeckHandler {
         }
 
         // Convert the decks to WebDecks (Add username)
-        Flux<WebDeck> webDecks = decks.flatMapSequential(deck -> getUsername(deck)
-                .map(username -> createWebDeck(deck, new ArrayList<>(), username)));
+        Flux<WebDeck> webDecks = decks.flatMapSequential(deck -> {
+            Set<String> cacheKeys = deckIdToCacheKeys.getOrDefault(deck.getId(), new HashSet<>());
+            cacheKeys.add(key);
+            deckIdToCacheKeys.put(deck.getId(), cacheKeys);
+            return getUsername(deck)
+                    .map(username -> createWebDeck(deck, new ArrayList<>(), username));
+        });
 
         // Create a PagedWebDeck object
         Mono<PagedWebDeck> pagedWebDeckMono = webDecks.collectList().map(webDeckList -> {
@@ -91,7 +107,11 @@ public class DeckHandler {
             return new PagedWebDeck(webDeckList, totalPages);
         });
 
-        return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(pagedWebDeckMono, PagedWebDeck.class);
+        return pagedWebDeckMono.flatMap(pagedWebDeck -> {
+            System.out.println(Arrays.toString(pagedWebDeck.getDecks().toArray()));
+            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(pagedWebDeck)
+                    .then(Mono.fromRunnable(() -> cache.put(key, pagedWebDeck)));
+        });
     }
 
     /**
@@ -109,7 +129,8 @@ public class DeckHandler {
 
                     return savedDeck.flatMap(id -> {
                         List<DeckCard> cards = webDeck.toDeckCards(id);
-                        return deckCardRepository.saveAll(cards).then(ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(id));
+                        return deckCardRepository.saveAll(cards).then(ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(id))
+                                .then(Mono.fromRunnable(cache::clear));
                     });
                 });
     }
@@ -135,7 +156,14 @@ public class DeckHandler {
                                         .then(ServerResponse.ok().build());
                             });
                 })
-                .onErrorResume(ResponseStatusException.class, e -> ServerResponse.status(e.getStatusCode()).bodyValue(e.getMessage()));
+                .onErrorResume(ResponseStatusException.class, e -> ServerResponse.status(e.getStatusCode()).bodyValue(e.getMessage()))
+                .doOnSuccess(response -> {
+                    // Clear the cache entries associated with the modified deck
+                    Set<String> cacheKeys = deckIdToCacheKeys.get(deckId);
+                    if (cacheKeys != null) {
+                        cacheKeys.forEach(cache::remove);
+                    }
+                });
     }
 
     /**
