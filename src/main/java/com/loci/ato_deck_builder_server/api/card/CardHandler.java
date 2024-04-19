@@ -27,11 +27,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class CardHandler {
+    private static final ResolvableType TYPE = ResolvableType.forClass(String.class);
+    private static final Logger logger = LoggerFactory.getLogger(CardHandler.class);
     private final CardRepository cardRepository;
     private final CardDetailRepository cardDetailRepository;
-    private static final ResolvableType TYPE = ResolvableType.forClass(String.class);
     private final ConcurrentHashMap<String, Flux<DataBuffer>> imageCache = new ConcurrentHashMap<>();
-    private static final Logger logger = LoggerFactory.getLogger(CardHandler.class);
 
     public CardHandler(CardRepository cardRepository, CardDetailRepository cardDetailRepository) {
         this.cardRepository = cardRepository;

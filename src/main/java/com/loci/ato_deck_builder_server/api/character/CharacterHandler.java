@@ -20,9 +20,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class CharacterHandler {
+    private static final Logger logger = LoggerFactory.getLogger(CharacterHandler.class);
     private final CharacterRepository characterRepository;
     private final ConcurrentHashMap<String, Flux<DataBuffer>> imageCache = new ConcurrentHashMap<>();
-    private static final Logger logger = LoggerFactory.getLogger(CharacterHandler.class);
 
     public CharacterHandler(CharacterRepository characterRepository) {
         this.characterRepository = characterRepository;
