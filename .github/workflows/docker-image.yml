@@ -15,7 +15,8 @@ jobs:
 
       - name: Get previous version
         id: prev_version
-        run: echo "::set-output name=version::$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
+        run: |
+          echo "PREV_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
 
       - name: Bump Version
         id: bump
@@ -28,4 +29,4 @@ jobs:
           docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }} ghcr.io
           docker build -t ghcr.io/locistar/ato-deckbuilder-server:${{ steps.bump.outputs.version }} .
           docker push ghcr.io/locistar/ato-deckbuilder-server:${{ steps.bump.outputs.version }}
-        if: steps.bump.outputs.version != steps.prev_version.outputs.version
+        if: env.PREV_VERSION != steps.bump.outputs.version
