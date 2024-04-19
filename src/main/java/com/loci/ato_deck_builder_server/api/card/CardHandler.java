@@ -59,7 +59,7 @@ public class CardHandler {
         // Or use a JVM argument
         // String imagePathArg = System.getProperty("imagePathArg");
 
-        Path imagePath = Paths.get(imagePathEnv, id + ".png");
+        Path imagePath = Paths.get(imagePathEnv, id + ".webp");
 
         Flux<DataBuffer> imageFlux = DataBufferUtils.readAsynchronousFileChannel(
                 () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
