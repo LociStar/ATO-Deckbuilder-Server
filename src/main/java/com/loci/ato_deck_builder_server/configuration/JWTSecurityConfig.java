@@ -46,7 +46,7 @@ public class JWTSecurityConfig {
         corsConfig.addAllowedMethod(HttpMethod.GET);
         corsConfig.addAllowedMethod(HttpMethod.POST);
         corsConfig.addAllowedMethod(HttpMethod.OPTIONS);
-        corsConfig.setAllowedOrigins(List.of(FRONTEND_LOCALHOST));//, "http://localhost:5173", "http://localhost:8080", "http://localhost:4173", "http://192.168.2.149:4173", "http://192.168.2.149:5173"));
+        corsConfig.setAllowedOrigins(List.of(FRONTEND_LOCALHOST)); //, "http://localhost:5173", "http://localhost:8080", "http://localhost:4173", "http://192.168.2.149:4173", "http://192.168.2.149:5173"));
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
