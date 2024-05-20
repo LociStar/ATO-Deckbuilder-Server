@@ -32,6 +32,7 @@ public class CardHandler {
     private final CardRepository cardRepository;
     private final CardDetailRepository cardDetailRepository;
     private final ConcurrentHashMap<String, Flux<DataBuffer>> imageCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Flux<DataBuffer>> spriteCache = new ConcurrentHashMap<>();
 
     public CardHandler(CardRepository cardRepository, CardDetailRepository cardDetailRepository) {
         this.cardRepository = cardRepository;
@@ -89,6 +90,18 @@ public class CardHandler {
         Path imagePath = Paths.get(imagePathEnv, id + ".webp");
 
         Flux<DataBuffer> imageFlux = imageCache.computeIfAbsent(id, key -> DataBufferUtils.readAsynchronousFileChannel(
+                () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
+                new DefaultDataBufferFactory(), 4096));
+
+        return ServerResponse.ok().contentType(MediaType.IMAGE_PNG).body(imageFlux, DataBuffer.class);
+    }
+
+    public Mono<ServerResponse> getCardSpriteUrl(ServerRequest request) {
+        String id = request.pathVariable("id");
+        String imagePathEnv = System.getenv("IMAGE_PATH");
+        Path imagePath = Paths.get(imagePathEnv + "/sprite", id + ".webp");
+
+        Flux<DataBuffer> imageFlux = spriteCache.computeIfAbsent(id, key -> DataBufferUtils.readAsynchronousFileChannel(
                 () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
                 new DefaultDataBufferFactory(), 4096));
 
