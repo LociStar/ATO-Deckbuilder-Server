@@ -1,5 +1,6 @@
 package com.loci.ato_deck_builder_server.api.deck;
 
+import com.loci.ato_deck_builder_server.api.deck.objects.DeckIdResponse;
 import com.loci.ato_deck_builder_server.api.deck.objects.PagedWebDeck;
 import com.loci.ato_deck_builder_server.api.deck.objects.WebDeck;
 import com.loci.ato_deck_builder_server.database.objects.Deck;
@@ -130,8 +131,7 @@ public class DeckHandler {
 
                     return savedDeck.flatMap(id -> {
                         List<DeckCard> cards = webDeck.toDeckCards(id);
-                        return deckCardRepository.saveAll(cards).then(ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(id))
-                                .then(Mono.fromRunnable(cache::clear));
+                        return deckCardRepository.saveAll(cards).then(Mono.fromRunnable(cache::clear)).then(ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(new DeckIdResponse(id)));
                     });
                 });
     }
@@ -145,7 +145,6 @@ public class DeckHandler {
                     Authentication authentication = tuple.getT2();
                     return deckRepository.getUserId(deckId)
                             .flatMap(userId -> {
-                                System.out.println(userId);
                                 if (!userId.equals(authentication.getName())) {
                                     return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this deck"));
                                 }
@@ -192,7 +191,11 @@ public class DeckHandler {
     private Flux<WebCard> getDeckCards(Deck deck) {
         return deckCardRepository.findByDeckId(deck.getId())
                 .flatMap(deckCard -> Flux.range(0, deckCard.getAmount())
-                        .flatMap(i -> cardRepository.findWebCardById(deckCard.getCardId())));
+                        .flatMap(i -> cardRepository.findWebCardById(deckCard.getCardId()))
+                        .map(webCard -> {
+                            webCard.setChapter(deckCard.getChapter());
+                            return webCard;
+                        }));
     }
 
     private Mono<String> getUsername(Deck deck) {
@@ -287,6 +290,7 @@ public class DeckHandler {
                             .then(deckRepository.deleteById(Integer.parseInt(serverRequest.pathVariable("id")))
                                     .then(ServerResponse.ok().build()));
                 })
-                .onErrorResume(ResponseStatusException.class, e -> ServerResponse.status(e.getStatusCode()).bodyValue(e.getMessage()));
+                .onErrorResume(ResponseStatusException.class, e -> ServerResponse.status(e.getStatusCode()).bodyValue(e.getMessage()))
+                .then(Mono.fromRunnable(cache::clear));
     }
 }
