@@ -99,11 +99,12 @@ public class CardHandler {
     public Mono<ServerResponse> getCardSpriteUrl(ServerRequest request) {
         String id = request.pathVariable("id");
         String imagePathEnv = System.getenv("IMAGE_PATH");
-        Path imagePath = Paths.get(imagePathEnv + "/sprite", id + ".webp");
+        Mono<String> spriteNameMono = cardDetailRepository.findSpriteById(id);
+        Mono<Path> imagePathMono = spriteNameMono.map(spriteName -> Paths.get(imagePathEnv + "/sprite", spriteName + ".webp"));
 
-        Flux<DataBuffer> imageFlux = spriteCache.computeIfAbsent(id, key -> DataBufferUtils.readAsynchronousFileChannel(
+        Flux<DataBuffer> imageFlux = imagePathMono.flatMapMany(imagePath -> spriteCache.computeIfAbsent(id, key -> DataBufferUtils.readAsynchronousFileChannel(
                 () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
-                new DefaultDataBufferFactory(), 4096));
+                new DefaultDataBufferFactory(), 4096)));
 
         return ServerResponse.ok().contentType(MediaType.IMAGE_PNG).body(imageFlux, DataBuffer.class);
     }
