@@ -1,6 +1,5 @@
 package com.loci.ato_deck_builder_server.api.deck.objects;
 
-import com.loci.ato_deck_builder_server.database.objects.Card;
 import com.loci.ato_deck_builder_server.database.objects.Deck;
 import com.loci.ato_deck_builder_server.database.objects.DeckCard;
 import com.loci.ato_deck_builder_server.database.objects.WebCard;
@@ -23,6 +22,7 @@ public class WebDeck extends Deck {
 
     /**
      * Converts the WebDeck to a list of DeckCards
+     *
      * @param id - id of the deck
      * @return - list of deck cards
      */
@@ -35,7 +35,7 @@ public class WebDeck extends Deck {
             if (deckCard != null) {
                 deckCard.setAmount(deckCard.getAmount() + 1);
             } else {
-                deckCard = DeckCard.builder().deckId(id).cardId(card.getId()).amount(1).build();
+                deckCard = DeckCard.builder().deckId(id).cardId(card.getId()).amount(1).chapter(card.getChapter()).build();
                 deckCardMap.put(card.getId(), deckCard);
             }
         }

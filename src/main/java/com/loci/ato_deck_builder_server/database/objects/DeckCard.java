@@ -17,4 +17,6 @@ public class DeckCard {
     private String cardId;
     @Column("amount")
     private int amount;
+    @Column("chapter")
+    private int chapter;
 }
