@@ -229,7 +229,14 @@ public class DeckHandler {
                         if (count == 0) {
                             return deckRepository.insertLike(id, authentication.getName())
                                     .then(deckRepository.incrementLikes(id))
-                                    .then(ServerResponse.ok().build());
+                                    .then(ServerResponse.ok().build())
+                                    .doOnSuccess(response -> {
+                                        // Clear the cache entries associated with the liked deck
+                                        Set<String> cacheKeys = deckIdToCacheKeys.get(id);
+                                        if (cacheKeys != null) {
+                                            cacheKeys.forEach(cache::remove);
+                                        }
+                                    });
                         } else {
                             return ServerResponse.ok().build();
                         }
@@ -253,7 +260,14 @@ public class DeckHandler {
                         if (count == 1) {
                             return deckRepository.removeLike(id, authentication.getName())
                                     .then(deckRepository.decrementLikes(id))
-                                    .then(ServerResponse.ok().build());
+                                    .then(ServerResponse.ok().build())
+                                    .doOnSuccess(response -> {
+                                        // Clear the cache entries associated with the unliked deck
+                                        Set<String> cacheKeys = deckIdToCacheKeys.get(id);
+                                        if (cacheKeys != null) {
+                                            cacheKeys.forEach(cache::remove);
+                                        }
+                                    });
                         } else {
                             return ServerResponse.ok().build();
                         }
