@@ -215,6 +215,7 @@ public class DeckHandler {
 
     /**
      * Handles the POST request to like a Deck.
+     * Also clears the cache entries associated with the liked deck.
      *
      * @param serverRequest The incoming ServerRequest.
      * @return A ServerResponse indicating the result of the operation.
@@ -246,6 +247,7 @@ public class DeckHandler {
 
     /**
      * Handles the POST request to unlike a Deck.
+     * Also clears the cache entries associated with the unliked deck.
      *
      * @param serverRequest The incoming ServerRequest.
      * @return A ServerResponse indicating the result of the operation.
