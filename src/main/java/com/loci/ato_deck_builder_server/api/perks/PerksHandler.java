@@ -79,12 +79,12 @@ public class PerksHandler {
         int size = Integer.parseInt(request.queryParam("size").orElse("10"));
         Pageable pageable = PageRequest.of(page, size);
         String searchQuery = "%" + request.queryParam("searchQuery").orElse("") + "%";
-        String charId = "%" + request.queryParam("charId").orElse("") + "%";
-        String ownedFilter = request.queryParam("ownedFilter").orElse("all").toLowerCase();
-        String userName = request.queryParam("userName").orElse("");
-        boolean sortByLikesFirst = Boolean.parseBoolean(request.queryParam("sortByLikesFirst").orElse("true"));
+//        String charId = "%" + request.queryParam("charId").orElse("") + "%";
+//        String ownedFilter = request.queryParam("ownedFilter").orElse("all").toLowerCase();
+//        String userName = request.queryParam("userName").orElse("");
+//        boolean sortByLikesFirst = Boolean.parseBoolean(request.queryParam("sortByLikesFirst").orElse("true"));
 
-        String key = searchQuery + "-" + charId + "-" + ownedFilter + "-" + userName + "-" + sortByLikesFirst + "-" + page + "-" + size;
+//        String key = searchQuery + "-" + charId + "-" + ownedFilter + "-" + userName + "-" + sortByLikesFirst + "-" + page + "-" + size;
 
         // Get the decks
         Flux<Perks> decks = perksRepository.findByTitle_likes(searchQuery, pageable.getPageSize(), pageable.getOffset());
