@@ -69,6 +69,9 @@ public class CharacterHandler {
                 () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
                 new DefaultDataBufferFactory(), 4096));
 
-        return ServerResponse.ok().contentType(MediaType.valueOf("image/webp")).header("Cache-Control", "public, max-age=2592000").body(imageFlux, DataBuffer.class);
+        return ServerResponse.ok()
+                .contentType(MediaType.valueOf("image/webp"))
+                .header("Cache-Control", "public, max-age=2592000")
+                .body(imageFlux, DataBuffer.class);
     }
 }
