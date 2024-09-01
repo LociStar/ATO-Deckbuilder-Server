@@ -1,4 +1,4 @@
-package com.loci.ato_deck_builder_server.api.perks;
+package com.loci.ato_deck_builder_server.api.perk;
 
 import lombok.*;
 
