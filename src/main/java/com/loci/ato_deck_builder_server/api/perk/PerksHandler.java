@@ -2,6 +2,7 @@ package com.loci.ato_deck_builder_server.api.perk;
 
 import com.loci.ato_deck_builder_server.api.deck.objects.DeckIdResponse;
 import com.loci.ato_deck_builder_server.database.objects.Perks;
+import com.loci.ato_deck_builder_server.database.repositories.PerkDetailsRepository;
 import com.loci.ato_deck_builder_server.database.repositories.PerksRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,9 +32,11 @@ public class PerksHandler {
     private final PerksRepository perksRepository;
     private final ConcurrentHashMap<String, Flux<DataBuffer>> imageCache = new ConcurrentHashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(PerksHandler.class);
+    private final PerkDetailsRepository perkDetailsRepository;
 
-    public PerksHandler(PerksRepository perksRepository) {
+    public PerksHandler(PerksRepository perksRepository, PerkDetailsRepository perkDetailsRepository) {
         this.perksRepository = perksRepository;
+        this.perkDetailsRepository = perkDetailsRepository;
         preloadImages();
     }
 
@@ -118,5 +121,12 @@ public class PerksHandler {
                 new DefaultDataBufferFactory(), 4096));
 
         return ServerResponse.ok().contentType(MediaType.valueOf("image/webp")).header("Cache-Control", "public, max-age=2592000").body(imageFlux, DataBuffer.class);
+    }
+
+    public Mono<ServerResponse> getPerkDetails(ServerRequest serverRequest) {
+        String id = serverRequest.pathVariable("id");
+        return perkDetailsRepository.findById(id)
+                .flatMap(perk -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(perk))
+                .switchIfEmpty(ServerResponse.notFound().build());
     }
 }
