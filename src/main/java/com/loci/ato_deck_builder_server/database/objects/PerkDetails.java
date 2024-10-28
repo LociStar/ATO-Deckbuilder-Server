@@ -1,6 +1,7 @@
 package com.loci.ato_deck_builder_server.database.objects;
 
 import lombok.*;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -11,8 +12,8 @@ import org.springframework.data.relational.core.mapping.Table;
 @AllArgsConstructor
 @Table("perk_details")
 public class PerkDetails {
-    @Column("id")
-    private int id;
+    @Id
+    private String id;
     @Column("additional_currency")
     private int additionalCurrency;
     @Column("additional_shards")
