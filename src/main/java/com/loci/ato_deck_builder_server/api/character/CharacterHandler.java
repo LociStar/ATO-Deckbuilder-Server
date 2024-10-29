@@ -1,5 +1,7 @@
 package com.loci.ato_deck_builder_server.api.character;
 
+import com.loci.ato_deck_builder_server.database.objects.CharacterCard;
+import com.loci.ato_deck_builder_server.database.repositories.CharacterCardRepository;
 import com.loci.ato_deck_builder_server.database.repositories.CharacterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,10 +24,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CharacterHandler {
     private static final Logger logger = LoggerFactory.getLogger(CharacterHandler.class);
     private final CharacterRepository characterRepository;
+    private final CharacterCardRepository characterCardRepository;
     private final ConcurrentHashMap<String, Flux<DataBuffer>> imageCache = new ConcurrentHashMap<>();
 
-    public CharacterHandler(CharacterRepository characterRepository) {
+    public CharacterHandler(CharacterRepository characterRepository, CharacterCardRepository characterCardRepository) {
         this.characterRepository = characterRepository;
+        this.characterCardRepository = characterCardRepository;
         preloadImages();
     }
 
@@ -73,5 +77,15 @@ public class CharacterHandler {
                 .contentType(MediaType.valueOf("image/webp"))
                 .header("Cache-Control", "public, max-age=2592000")
                 .body(imageFlux, DataBuffer.class);
+    }
+
+    public Mono<ServerResponse> getCharacterDeck(ServerRequest serverRequest) {
+        String character_id = serverRequest.pathVariable("id");
+        Flux<CharacterCard> cardFlux = characterCardRepository.findCardsByCharacterIdWithoutDuplicates(character_id)
+                .flatMap(card -> {
+                    System.out.println(card);
+                    return Flux.just(card).repeat(Math.max(0, card.getUnits_in_deck() - 1));
+                });
+        return ServerResponse.ok().body(cardFlux, CharacterCard.class);
     }
 }
