@@ -82,10 +82,7 @@ public class CharacterHandler {
     public Mono<ServerResponse> getCharacterDeck(ServerRequest serverRequest) {
         String character_id = serverRequest.pathVariable("id");
         Flux<CharacterCard> cardFlux = characterCardRepository.findCardsByCharacterIdWithoutDuplicates(character_id)
-                .flatMap(card -> {
-                    System.out.println(card);
-                    return Flux.just(card).repeat(Math.max(0, card.getUnits_in_deck() - 1));
-                });
+                .flatMap(card -> Flux.just(card).repeat(Math.max(0, card.getUnits_in_deck() - 1)));
         return ServerResponse.ok().body(cardFlux, CharacterCard.class);
     }
 }
