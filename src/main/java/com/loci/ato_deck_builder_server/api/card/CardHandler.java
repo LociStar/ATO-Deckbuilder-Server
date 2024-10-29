@@ -106,7 +106,7 @@ public class CardHandler {
                 () -> AsynchronousFileChannel.open(imagePath, StandardOpenOption.READ),
                 new DefaultDataBufferFactory(), 4096)));
 
-        return ServerResponse.ok().contentType(MediaType.IMAGE_PNG).body(imageFlux, DataBuffer.class);
+        return ServerResponse.ok().contentType(MediaType.IMAGE_PNG).header("Cache-Control", "public, max-age=259200").body(imageFlux, DataBuffer.class);
     }
 
     public Mono<ServerResponse> getCardDetails(ServerRequest serverRequest) {
