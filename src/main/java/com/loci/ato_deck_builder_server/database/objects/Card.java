@@ -19,7 +19,7 @@ public class Card {
     @Column("name")
     private String name;
 
-    @Column("class")
+    @Column("card_class")
     private String cardClass;
 
     @Column("version")
