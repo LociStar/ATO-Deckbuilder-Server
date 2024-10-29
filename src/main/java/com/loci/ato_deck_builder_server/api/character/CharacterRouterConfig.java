@@ -14,6 +14,7 @@ public class CharacterRouterConfig {
         return RouterFunctions.route()
                 .GET("/character", characterHandler::getAllCharacters)
                 .GET("/character/image/{id}", characterHandler::getCharacterImage)
+                .GET("/character/default/{id}", characterHandler::getCharacterDeck)
                 .build();
     }
 }
