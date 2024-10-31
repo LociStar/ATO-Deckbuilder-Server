@@ -20,5 +20,5 @@ public interface PerksRepository extends R2dbcRepository<Perks, String>  {
             VALUES ($1, $2, $3)
             RETURNING id
             """)
-    Mono<? extends Integer> insertDeck(String title, String data, String uid);
+    Mono<Integer> insertDeck(String title, String data, String uid);
 }
