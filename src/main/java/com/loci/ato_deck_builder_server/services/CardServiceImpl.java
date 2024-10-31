@@ -40,13 +40,13 @@ public class CardServiceImpl implements CardService {
     public Mono<Iterable<WebCard>> getFilteredCards(int page, int size, String searchQuery, String charClass, String secondaryCharClass) {
         long offset = (long) page * size;
         Flux<WebCard> cards = cardRepository.findByNameContaining(searchQuery, size, offset, charClass, secondaryCharClass);
-        return cards.collectList().map(list -> (Iterable<WebCard>) list);
+        return cards.collectList().map(list -> list);
     }
 
     @Override
     public Mono<Iterable<Card>> getCardsByCardClass(String cardClassId) {
         Flux<Card> cards = cardRepository.findByCardClass(cardClassId);
-        return cards.collectList().map(list -> (Iterable<Card>) list);
+        return cards.collectList().map(list -> list);
     }
 
     @Override
