@@ -99,4 +99,63 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
             WHERE deck_id = $1
             """)
     Mono<String> getUserId(int deckId);
+
+    @Query("SELECT COUNT(*) FROM deck WHERE title ILIKE :searchQuery AND char_id LIKE :charId")
+    Mono<Long> countDecksByTitle(String searchQuery, String charId);
+
+    @Query("SELECT COUNT(*) FROM deck WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id = :userId")
+    Mono<Long> countOwnedDecksByTitle(String searchQuery, String charId, String userId);
+
+    @Query("SELECT COUNT(*) FROM deck WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id <> :userId")
+    Mono<Long> countUnownedDecksByTitle(String searchQuery, String charId, String userId);
+
+    @Query("""
+                SELECT * FROM deck
+                WHERE title ILIKE :searchQuery AND char_id LIKE :charId
+                ORDER BY likes DESC
+                LIMIT :limit OFFSET :offset
+            """)
+    Flux<Deck> findDecksByTitleOrderByLikes(String searchQuery, String charId, int limit, long offset);
+
+    @Query("""
+                SELECT * FROM deck
+                WHERE title ILIKE :searchQuery AND char_id LIKE :charId
+                ORDER BY title ASC
+                LIMIT :limit OFFSET :offset
+            """)
+    Flux<Deck> findDecksByTitleOrderByTitle(String searchQuery, String charId, int limit, long offset);
+
+    @Query("""
+                SELECT * FROM deck
+                WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id = :userId
+                ORDER BY likes DESC
+                LIMIT :limit OFFSET :offset
+            """)
+    Flux<Deck> findOwnedDecksByTitleOrderByLikes(String searchQuery, String charId, String userId, int limit, long offset);
+
+    @Query("""
+                SELECT * FROM deck
+                WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id = :userId
+                ORDER BY title ASC
+                LIMIT :limit OFFSET :offset
+            """)
+    Flux<Deck> findOwnedDecksByTitleOrderByTitle(String searchQuery, String charId, String userId, int limit, long offset);
+
+    @Query("""
+                SELECT * FROM deck
+                WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id <> :userId
+                ORDER BY likes DESC
+                LIMIT :limit OFFSET :offset
+            """)
+    Flux<Deck> findUnownedDecksByTitleOrderByLikes(String searchQuery, String charId, String userId, int limit, long offset);
+
+    @Query("""
+                SELECT * FROM deck
+                WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id <> :userId
+                ORDER BY title ASC
+                LIMIT :limit OFFSET :offset
+            """)
+    Flux<Deck> findUnownedDecksByTitleOrderByTitle(String searchQuery, String charId, String userId, int limit, long offset);
+
+
 }

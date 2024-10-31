@@ -15,11 +15,9 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 public class DeckServiceImpl implements DeckService {
@@ -52,48 +50,84 @@ public class DeckServiceImpl implements DeckService {
             return Mono.just(cachedPagedWebDeck);
         }
 
-        // Get the decks
-        Flux<Deck> decks = sortByLikesFirst ?
-                deckRepository.findByTitle_likes(searchQuery, size, (long) page * size, charId) :
-                deckRepository.findByTitle_title(searchQuery, size, (long) page * size, charId);
+        Mono<DecksAndCount> decksAndCountMono;
 
-        if (ownedFilter.equals("owned")) {
-            return getUserId(userName).flatMapMany(userId -> {
-                Flux<Deck> userDecks = sortByLikesFirst ?
-                        deckRepository.findByTitle_likes(searchQuery, size, (long) page * size, charId, userId) :
-                        deckRepository.findByTitle_title(searchQuery, size, (long) page * size, charId, userId);
-                return processDecks(userDecks, key, size);
-            }).next();
-        } else if (ownedFilter.equals("unowned")) {
-            return getUserId(userName).flatMapMany(userId -> {
-                Flux<Deck> userDecks = sortByLikesFirst ?
-                        deckRepository.findByTitle_likes_unowned(searchQuery, size, (long) page * size, charId, userId) :
-                        deckRepository.findByTitle_title_unowned(searchQuery, size, (long) page * size, charId, userId);
-                return processDecks(userDecks, key, size);
-            }).next();
+        if (ownedFilter.equals("owned") || ownedFilter.equals("unowned")) {
+            decksAndCountMono = getUserId(userName).flatMap(userId -> {
+                Flux<Deck> decks;
+                Mono<Long> totalCountMono;
+
+                if (ownedFilter.equals("owned")) {
+                    decks = sortByLikesFirst ?
+                            deckRepository.findOwnedDecksByTitleOrderByLikes(searchQuery, charId, userId, size, (long) page * size) :
+                            deckRepository.findOwnedDecksByTitleOrderByTitle(searchQuery, charId, userId, size, (long) page * size);
+
+                    totalCountMono = deckRepository.countOwnedDecksByTitle(searchQuery, charId, userId);
+                } else { // unowned
+                    decks = sortByLikesFirst ?
+                            deckRepository.findUnownedDecksByTitleOrderByLikes(searchQuery, charId, userId, size, (long) page * size) :
+                            deckRepository.findUnownedDecksByTitleOrderByTitle(searchQuery, charId, userId, size, (long) page * size);
+
+                    totalCountMono = deckRepository.countUnownedDecksByTitle(searchQuery, charId, userId);
+                }
+
+                return Mono.just(new DecksAndCount(decks, totalCountMono));
+            });
         } else {
-            return processDecks(decks, key, size).next();
+            Flux<Deck> decks = sortByLikesFirst ?
+                    deckRepository.findDecksByTitleOrderByLikes(searchQuery, charId, size, (long) page * size) :
+                    deckRepository.findDecksByTitleOrderByTitle(searchQuery, charId, size, (long) page * size);
+
+            Mono<Long> totalCountMono = deckRepository.countDecksByTitle(searchQuery, charId);
+
+            decksAndCountMono = Mono.just(new DecksAndCount(decks, totalCountMono));
         }
+
+        return decksAndCountMono.flatMap(decksAndCount ->
+                processDecks(decksAndCount.decks, decksAndCount.totalCountMono, key, size)
+        );
     }
 
-    private Flux<PagedWebDeck> processDecks(Flux<Deck> decks, String key, int size) {
-        // Convert the decks to WebDecks (Add username)
-        Flux<WebDeck> webDecks = decks.flatMapSequential(deck -> {
-            Set<String> cacheKeys = deckIdToCacheKeys.getOrDefault(deck.getId(), new HashSet<>());
-            cacheKeys.add(key);
-            deckIdToCacheKeys.put(deck.getId(), cacheKeys);
-            return getUsername(deck)
-                    .map(username -> createWebDeck(deck, new ArrayList<>(), username));
-        });
+    private Mono<PagedWebDeck> processDecks(Flux<Deck> decks, Mono<Long> totalCountMono, String key, int size) {
+        return Mono.zip(decks.collectList(), totalCountMono).flatMap(tuple -> {
+            List<Deck> deckList = tuple.getT1();
+            Long totalCount = tuple.getT2();
 
-        // Create a PagedWebDeck object
-        Mono<PagedWebDeck> pagedWebDeckMono = webDecks.collectList().map(webDeckList -> {
-            // Calculate the total number of pages
-            int totalPages = (int) Math.ceil((double) (webDeckList.size() + 1) / size);
-            return new PagedWebDeck(webDeckList, totalPages);
-        });
+            // Update deckIdToCacheKeys atomically
+            deckList.forEach(deck -> {
+                deckIdToCacheKeys.compute(deck.getId(), (deckId, cacheKeys) -> {
+                    if (cacheKeys == null) {
+                        cacheKeys = ConcurrentHashMap.newKeySet();
+                    }
+                    cacheKeys.add(key);
+                    return cacheKeys;
+                });
+            });
 
-        return pagedWebDeckMono.doOnSuccess(pagedWebDeck -> cache.put(key, pagedWebDeck)).flux();
+            // Collect unique userIds
+            Set<String> userIds = deckList.stream()
+                    .map(Deck::getUserId)
+                    .collect(Collectors.toSet());
+
+            // Batch fetch usernames
+            return Flux.fromIterable(userIds)
+                    .flatMap(userId -> getUsername(userId)
+                            .map(username -> new AbstractMap.SimpleEntry<>(userId, username)))
+                    .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                    .map(userIdToUsernameMap -> {
+                        List<WebDeck> webDeckList = deckList.stream()
+                                .map(deck -> {
+                                    String username = userIdToUsernameMap.get(deck.getUserId());
+                                    return createWebDeck(deck, new ArrayList<>(), username);
+                                })
+                                .collect(Collectors.toList());
+
+                        int totalPages = (int) Math.ceil((double) totalCount / size);
+                        PagedWebDeck pagedWebDeck = new PagedWebDeck(webDeckList, totalPages);
+                        cache.put(key, pagedWebDeck);
+                        return pagedWebDeck;
+                    });
+        });
     }
 
     @Override
@@ -123,14 +157,14 @@ public class DeckServiceImpl implements DeckService {
                     if (!userId.equals(username)) {
                         return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this deck"));
                     }
-                    // Delete existing cards
+                    // Delete existing cards and update deck
                     return deckCardRepository.deleteByDeckId(deckId)
-                            .thenMany(Flux.fromIterable(webDeck.toDeckCards(deckId))) // Convert WebCards to DeckCards
-                            .flatMap(deckCardRepository::save) // Save new cards
+                            .thenMany(Flux.fromIterable(webDeck.toDeckCards(deckId)))
+                            .flatMap(deckCardRepository::save)
                             .then(deckRepository.updateDeck(deckId, webDeck.getTitle(), webDeck.getDescription(), webDeck.getCharacterId()))
                             .doOnSuccess(aVoid -> {
                                 // Clear the cache entries associated with the modified deck
-                                Set<String> cacheKeys = deckIdToCacheKeys.get(deckId);
+                                Set<String> cacheKeys = deckIdToCacheKeys.remove(deckId);
                                 if (cacheKeys != null) {
                                     cacheKeys.forEach(cache::remove);
                                 }
@@ -202,7 +236,7 @@ public class DeckServiceImpl implements DeckService {
     private Mono<WebDeck> createWebDeck(Deck deck) {
         return getDeckCards(deck)
                 .collectList()
-                .flatMap(cards -> getUsername(deck)
+                .flatMap(cards -> getUsername(deck.getUserId())
                         .map(username -> createWebDeck(deck, cards, username)));
     }
 
@@ -216,8 +250,8 @@ public class DeckServiceImpl implements DeckService {
                         }));
     }
 
-    private Mono<String> getUsername(Deck deck) {
-        return keycloakService.getUsername(deck.getUserId());
+    private Mono<String> getUsername(String userId) {
+        return keycloakService.getUsername(userId);
     }
 
     private Mono<String> getUserId(String username) {
@@ -229,5 +263,16 @@ public class DeckServiceImpl implements DeckService {
         webDeck.setCardList(cards);
         webDeck.setUsername(username);
         return webDeck;
+    }
+
+    // Helper class to hold decks and total count
+    private static class DecksAndCount {
+        Flux<Deck> decks;
+        Mono<Long> totalCountMono;
+
+        public DecksAndCount(Flux<Deck> decks, Mono<Long> totalCountMono) {
+            this.decks = decks;
+            this.totalCountMono = totalCountMono;
+        }
     }
 }
