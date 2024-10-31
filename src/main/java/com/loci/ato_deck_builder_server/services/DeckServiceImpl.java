@@ -94,15 +94,13 @@ public class DeckServiceImpl implements DeckService {
             Long totalCount = tuple.getT2();
 
             // Update deckIdToCacheKeys atomically
-            deckList.forEach(deck -> {
-                deckIdToCacheKeys.compute(deck.getId(), (deckId, cacheKeys) -> {
-                    if (cacheKeys == null) {
-                        cacheKeys = ConcurrentHashMap.newKeySet();
-                    }
-                    cacheKeys.add(key);
-                    return cacheKeys;
-                });
-            });
+            deckList.forEach(deck -> deckIdToCacheKeys.compute(deck.getId(), (deckId, cacheKeys) -> {
+                if (cacheKeys == null) {
+                    cacheKeys = ConcurrentHashMap.newKeySet();
+                }
+                cacheKeys.add(key);
+                return cacheKeys;
+            }));
 
             // Collect unique userIds
             Set<String> userIds = deckList.stream()
