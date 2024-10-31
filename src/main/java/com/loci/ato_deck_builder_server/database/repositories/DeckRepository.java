@@ -9,54 +9,6 @@ import reactor.core.publisher.Mono;
 
 public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
     @Query("""
-            SELECT * FROM deck
-            WHERE title ILIKE $1 AND char_id LIKE $4
-            ORDER BY likes DESC, title
-            LIMIT $2 OFFSET $3
-            """)
-    Flux<Deck> findByTitle_likes(String name, int limit, long offset, String charId);
-
-    @Query("""
-            SELECT * FROM deck
-            WHERE title ILIKE $1 AND char_id LIKE $4 AND user_id = $5
-            ORDER BY likes DESC, title
-            LIMIT $2 OFFSET $3
-            """)
-    Flux<Deck> findByTitle_likes(String name, int limit, long offset, String charId, String userId);
-
-    @Query("""
-            SELECT * FROM deck
-            WHERE title ILIKE $1 AND char_id LIKE $4 AND user_id != $5
-            ORDER BY likes DESC, title
-            LIMIT $2 OFFSET $3
-            """)
-    Flux<Deck> findByTitle_likes_unowned(String name, int limit, long offset, String charId, String userId);
-
-    @Query("""
-            SELECT * FROM deck
-            WHERE title ILIKE $1 AND char_id LIKE $4
-            ORDER BY title
-            LIMIT $2 OFFSET $3
-            """)
-    Flux<Deck> findByTitle_title(String name, int limit, long offset, String charId);
-
-    @Query("""
-            SELECT * FROM deck
-            WHERE title ILIKE $1 AND char_id LIKE $4 AND user_id = $5
-            ORDER BY title
-            LIMIT $2 OFFSET $3
-            """)
-    Flux<Deck> findByTitle_title(String name, int limit, long offset, String charId, String userId);
-
-    @Query("""
-            SELECT * FROM deck
-            WHERE title ILIKE $1 AND char_id LIKE $4 AND user_id != $5
-            ORDER BY title
-            LIMIT $2 OFFSET $3
-            """)
-    Flux<Deck> findByTitle_title_unowned(String name, int limit, long offset, String charId, String userId);
-
-    @Query("""
             INSERT INTO deck (title, description, char_id, user_id)
             VALUES ($1, $2, $3, $4)
             RETURNING deck_id
@@ -84,7 +36,7 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
     @Query("SELECT COUNT(*) FROM deck_likes WHERE deck_id = $1 AND user_id = $2")
     Mono<Integer> countLikes(int id, String userId);
 
-    @Query("SELECT COUNT(d) FROM Deck d WHERE d.title LIKE $1")
+    @Query("SELECT COUNT(d) FROM deck d WHERE d.title LIKE $1")
     Mono<Integer> countByTitleContaining(String searchQuery);
 
     @Query("""
@@ -120,7 +72,7 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
     @Query("""
                 SELECT * FROM deck
                 WHERE title ILIKE :searchQuery AND char_id LIKE :charId
-                ORDER BY title ASC
+                ORDER BY title
                 LIMIT :limit OFFSET :offset
             """)
     Flux<Deck> findDecksByTitleOrderByTitle(String searchQuery, String charId, int limit, long offset);
@@ -136,7 +88,7 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
     @Query("""
                 SELECT * FROM deck
                 WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id = :userId
-                ORDER BY title ASC
+                ORDER BY title
                 LIMIT :limit OFFSET :offset
             """)
     Flux<Deck> findOwnedDecksByTitleOrderByTitle(String searchQuery, String charId, String userId, int limit, long offset);
@@ -152,7 +104,7 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
     @Query("""
                 SELECT * FROM deck
                 WHERE title ILIKE :searchQuery AND char_id LIKE :charId AND user_id <> :userId
-                ORDER BY title ASC
+                ORDER BY title
                 LIMIT :limit OFFSET :offset
             """)
     Flux<Deck> findUnownedDecksByTitleOrderByTitle(String searchQuery, String charId, String userId, int limit, long offset);

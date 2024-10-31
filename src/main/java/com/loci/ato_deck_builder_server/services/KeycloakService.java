@@ -39,7 +39,7 @@ public class KeycloakService {
                 .map(users -> {
                     if (users.isEmpty())
                         return "";
-                    Map<String, Object> firstUser = users.get(0);
+                    Map<String, Object> firstUser = users.getFirst();
                     return (String) firstUser.get("id");
                 });
     }
