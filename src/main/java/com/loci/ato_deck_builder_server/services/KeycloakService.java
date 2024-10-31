@@ -1,8 +1,10 @@
+// KeycloakService.java
 package com.loci.ato_deck_builder_server.services;
 
 import org.json.JSONObject;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -11,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Service
 public class KeycloakService {
 
     private final WebClient webClient;
@@ -34,29 +37,24 @@ public class KeycloakService {
                 .map(s -> {
                     if (s.isEmpty())
                         return "";
-                    Map<String, Object> firstUser = s.getFirst();
+                    Map<String, Object> firstUser = s.get(0);
                     return (String) firstUser.get("id");
                 });
     }
 
     public Mono<String> getUsername(String userId) {
-
         Mono<String> tokenMono = getToken();
-
-        // Use the access token to fetch the username
         return getUsernameWithToken(userId, tokenMono);
     }
 
     private Mono<String> getUsernameWithToken(String userId, Mono<String> tokenMono) {
-
-        Mono<String> responseMono = tokenMono.flatMap(token ->
-                webClient.get()
-                        .uri("/admin/realms/ATO-Deckbuilder/users/{userId}", userId)
-                        .headers(httpHeaders -> httpHeaders.setBearerAuth(token))
-                        .retrieve()
-                        .bodyToMono(String.class));
-
-        return responseMono.map(s -> new JSONObject(s).getString("username"));
+        return tokenMono.flatMap(token ->
+                        webClient.get()
+                                .uri("/admin/realms/ATO-Deckbuilder/users/{userId}", userId)
+                                .headers(httpHeaders -> httpHeaders.setBearerAuth(token))
+                                .retrieve()
+                                .bodyToMono(String.class))
+                .map(s -> new JSONObject(s).getString("username"));
     }
 
     private Mono<String> getToken() {
@@ -66,21 +64,20 @@ public class KeycloakService {
         }
 
         // Otherwise, request a new token
-        Mono<String> responseMono = webClient.post()
+        return webClient.post()
                 .uri("/realms/ATO-Deckbuilder/protocol/openid-connect/token")
                 .headers(httpHeaders -> httpHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED))
                 .headers(httpHeaders -> httpHeaders.setBasicAuth(clientId, clientSecret))
                 .bodyValue("grant_type=client_credentials")
                 .retrieve()
-                .bodyToMono(String.class);
-
-        return responseMono.map(s -> {
-            JSONObject json = new JSONObject(s);
-            accessToken = json.getString("access_token");
-            int expiresIn = json.getInt("expires_in"); // Get the expiry time in seconds
-            tokenExpiryTime = Instant.now().plusSeconds(expiresIn - 60); // Subtract 60 seconds to account for possible delays
-            return accessToken;
-        });
+                .bodyToMono(String.class)
+                .map(s -> {
+                    JSONObject json = new JSONObject(s);
+                    accessToken = json.getString("access_token");
+                    int expiresIn = json.getInt("expires_in"); // Get the expiry time in seconds
+                    tokenExpiryTime = Instant.now().plusSeconds(expiresIn - 60); // Subtract 60 seconds to account for possible delays
+                    return accessToken;
+                });
     }
 
     public Mono<String> updateUser(String userId, String username, String email) {
