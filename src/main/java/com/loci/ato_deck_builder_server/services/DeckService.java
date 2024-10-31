@@ -22,4 +22,3 @@ public interface DeckService {
 
     Mono<Boolean> isLiked(int deckId, String username);
 }
-

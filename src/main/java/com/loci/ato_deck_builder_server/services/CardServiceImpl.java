@@ -110,4 +110,3 @@ public class CardServiceImpl implements CardService {
         logger.info("Total CardsImages cache size: {} MB", totalSizeInMB);
     }
 }
-

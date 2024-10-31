@@ -88,4 +88,3 @@ public class CharacterServiceImpl implements CharacterService {
         logger.info("Total CharacterImages cache size: {} MB", totalSizeInMB);
     }
 }
-

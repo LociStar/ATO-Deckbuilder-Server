@@ -15,4 +15,3 @@ public interface CharacterService {
 
     Flux<CharacterCard> getCharacterDeck(String characterId);
 }
-

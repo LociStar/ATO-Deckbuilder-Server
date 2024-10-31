@@ -16,11 +16,11 @@ import java.util.Map;
 @Service
 public class KeycloakService {
 
+    private static String accessToken;
+    private static Instant tokenExpiryTime;
     private final WebClient webClient;
     private final String clientId = System.getenv("keycloak_clientId");
     private final String clientSecret = System.getenv("keycloak_clientSecret");
-    private static String accessToken;
-    private static Instant tokenExpiryTime;
 
     public KeycloakService() {
         String keycloakUrl = System.getenv("keycloak_base_url");
@@ -37,7 +37,7 @@ public class KeycloakService {
                 .map(s -> {
                     if (s.isEmpty())
                         return "";
-                    Map<String, Object> firstUser = s.get(0);
+                    Map<String, Object> firstUser = s.getFirst();
                     return (String) firstUser.get("id");
                 });
     }

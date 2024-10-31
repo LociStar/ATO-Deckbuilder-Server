@@ -15,4 +15,3 @@ public interface CardService {
 
     Flux<DataBuffer> getCardSprite(String cardId);
 }
-
