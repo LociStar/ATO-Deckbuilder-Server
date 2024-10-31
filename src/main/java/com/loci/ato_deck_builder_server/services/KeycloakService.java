@@ -2,6 +2,7 @@
 package com.loci.ato_deck_builder_server.services;
 
 import org.json.JSONObject;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class KeycloakService {
         this.webClient = WebClient.builder().baseUrl(keycloakUrl).build();
     }
 
+    @Cacheable(cacheNames = "userIds", key = "#username")
     public Mono<String> getUserId(String username) {
         return getToken().flatMap(token -> webClient.get()
                         .uri("/admin/realms/ATO-Deckbuilder/users?username={username}", username)
@@ -34,17 +36,23 @@ public class KeycloakService {
                         .retrieve()
                         .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
                         }))
-                .map(s -> {
-                    if (s.isEmpty())
+                .map(users -> {
+                    if (users.isEmpty())
                         return "";
-                    Map<String, Object> firstUser = s.getFirst();
+                    Map<String, Object> firstUser = users.get(0);
                     return (String) firstUser.get("id");
                 });
     }
 
+    @Cacheable(cacheNames = "usernames", key = "#userId")
     public Mono<String> getUsername(String userId) {
-        Mono<String> tokenMono = getToken();
-        return getUsernameWithToken(userId, tokenMono);
+        return getToken().flatMap(token ->
+                        webClient.get()
+                                .uri("/admin/realms/ATO-Deckbuilder/users/{userId}", userId)
+                                .headers(httpHeaders -> httpHeaders.setBearerAuth(token))
+                                .retrieve()
+                                .bodyToMono(String.class))
+                .map(s -> new JSONObject(s).getString("username"));
     }
 
     private Mono<String> getUsernameWithToken(String userId, Mono<String> tokenMono) {
