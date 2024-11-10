@@ -3,8 +3,10 @@ package com.loci.ato_deck_builder_server.services;
 import com.loci.ato_deck_builder_server.api.perk.PagedPerks;
 import com.loci.ato_deck_builder_server.api.perk.WebPerk;
 import com.loci.ato_deck_builder_server.database.objects.PerkDetails;
+import com.loci.ato_deck_builder_server.database.objects.PerkNode;
 import com.loci.ato_deck_builder_server.database.objects.Perks;
 import com.loci.ato_deck_builder_server.database.repositories.PerkDetailsRepository;
+import com.loci.ato_deck_builder_server.database.repositories.PerkNodeRepository;
 import com.loci.ato_deck_builder_server.database.repositories.PerksRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +30,13 @@ public class PerksServiceImpl implements PerksService {
     private static final Logger logger = LoggerFactory.getLogger(PerksServiceImpl.class);
     private final PerksRepository perksRepository;
     private final PerkDetailsRepository perkDetailsRepository;
+    private final PerkNodeRepository perkNodeRepository;
     private final ConcurrentHashMap<String, Flux<DataBuffer>> imageCache = new ConcurrentHashMap<>();
 
-    public PerksServiceImpl(PerksRepository perksRepository, PerkDetailsRepository perkDetailsRepository) {
+    public PerksServiceImpl(PerksRepository perksRepository, PerkDetailsRepository perkDetailsRepository, PerkNodeRepository perkNodeRepository) {
         this.perksRepository = perksRepository;
         this.perkDetailsRepository = perkDetailsRepository;
+        this.perkNodeRepository = perkNodeRepository;
         preloadImages();
     }
 
@@ -103,5 +107,9 @@ public class PerksServiceImpl implements PerksService {
 
         double totalSizeInMB = totalSize / (1024.0 * 1024.0);
         logger.info("Total PerkImages cache size: {} MB", totalSizeInMB);
+    }
+
+    public Flux<PerkNode> getPerkNodes() {
+        return perkNodeRepository.findAll();
     }
 }
