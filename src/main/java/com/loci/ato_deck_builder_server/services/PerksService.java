@@ -21,4 +21,8 @@ public interface PerksService {
     Mono<PerkDetails> getPerkDetails(String id);
 
     Flux<PerkNode> getPerkNodes();
+
+    Mono<Void> deletePerk(String id);
+
+    Mono<Void> updatePerk(String id, WebPerk webPerk);
 }

@@ -89,6 +89,57 @@ public class PerksHandler {
                 .onErrorResume(this::handleException);
     }
 
+    public Mono<ServerResponse> deletePerk(ServerRequest serverRequest) {
+        String id = serverRequest.pathVariable("id");
+
+        return ReactiveSecurityContextHolder.getContext()
+                .flatMap(context -> {
+                    String username = context.getAuthentication().getName();
+
+                    // First, get the perk details to verify ownership
+                    return perksService.getPerks(id)
+                            .flatMap(perk -> {
+                                if (!perk.getUid().equals(username)) {
+                                    // If the current user is not the owner, throw a Forbidden status
+                                    return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to delete this perk."));
+                                }
+
+                                // If the ownership matches, proceed to delete the perk
+                                return perksService.deletePerk(id)
+                                        .then(ServerResponse.noContent().build());
+                            });
+                })
+                .onErrorResume(this::handleException); // Handle any errors
+    }
+
+
+    public Mono<ServerResponse> updatePerk(ServerRequest serverRequest) {
+        String id = serverRequest.pathVariable("id");
+
+        // First, get the perk details to verify ownership and then update it
+        return serverRequest.bodyToMono(WebPerk.class)
+                .zipWith(ReactiveSecurityContextHolder.getContext().map(SecurityContext::getAuthentication))
+                .flatMap(tuple -> {
+                    WebPerk webPerk = tuple.getT1();
+                    String username = tuple.getT2().getName();
+
+                    return perksService.getPerks(id)
+                            .flatMap(perk -> {
+                                if (!perk.getUid().equals(username)) {
+                                    // If the current user is not the owner, throw a Forbidden status
+                                    return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to update this perk."));
+                                }
+
+                                // If the ownership matches, proceed to update the perk
+                                return perksService.updatePerk(id, webPerk)
+                                        .then(Mono.defer(() -> ServerResponse.ok()
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .bodyValue(new DeckIdResponse(Integer.parseInt(id)))));
+                            });
+                })
+                .onErrorResume(this::handleException); // Handle any errors
+    }
+
     private Mono<ServerResponse> handleException(Throwable e) {
         if (e instanceof ResponseStatusException ex) {
             if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
@@ -99,4 +150,5 @@ public class PerksHandler {
         }
         return ServerResponse.status(500).bodyValue(e.getMessage());
     }
+
 }

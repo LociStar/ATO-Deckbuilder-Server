@@ -112,4 +112,12 @@ public class PerksServiceImpl implements PerksService {
     public Flux<PerkNode> getPerkNodes() {
         return perkNodeRepository.findAll();
     }
+
+    public Mono<Void> deletePerk(String id) {
+        return perksRepository.deleteById(id);
+    }
+
+    public Mono<Void> updatePerk(String id, WebPerk updatedPerk) {
+        return perksRepository.updatePerk(id, updatedPerk.getTitle(), updatedPerk.getPerks());
+    }
 }

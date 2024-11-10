@@ -21,4 +21,11 @@ public interface PerksRepository extends R2dbcRepository<Perks, String>  {
             RETURNING id
             """)
     Mono<Integer> insertDeck(String title, String data, String uid);
+
+    @Query("""
+            UPDATE perks
+            SET title = $2, data = $3
+            WHERE id = $1
+            """)
+    Mono<Void> updatePerk(String id, String title, String perks);
 }
