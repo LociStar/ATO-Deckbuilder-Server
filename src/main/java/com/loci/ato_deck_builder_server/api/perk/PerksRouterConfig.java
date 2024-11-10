@@ -17,6 +17,7 @@ public class PerksRouterConfig {
                 .PUT("/perks/upload", perksHandler::uploadPerk)
                 .GET("/perks/image/{id}", perksHandler::getPerkImage)
                 .GET("/perks/details/{id}", perksHandler::getPerkDetails)
+                .GET("/perks/main/all", perksHandler::getAllMainPerks)
                 .build();
     }
 }

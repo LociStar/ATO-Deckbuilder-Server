@@ -80,6 +80,15 @@ public class PerksHandler {
                 .onErrorResume(this::handleException);
     }
 
+    public Mono<ServerResponse> getAllMainPerks(ServerRequest serverRequest) {
+        return perksService.getPerkNodes()
+                .collectList()
+                .flatMap(perkNodes -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(perkNodes))
+                .onErrorResume(this::handleException);
+    }
+
     private Mono<ServerResponse> handleException(Throwable e) {
         if (e instanceof ResponseStatusException ex) {
             if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
