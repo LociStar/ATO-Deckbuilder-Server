@@ -8,6 +8,7 @@ import com.loci.ato_deck_builder_server.database.objects.Perks;
 import com.loci.ato_deck_builder_server.database.repositories.PerkDetailsRepository;
 import com.loci.ato_deck_builder_server.database.repositories.PerkNodeRepository;
 import com.loci.ato_deck_builder_server.database.repositories.PerksRepository;
+import com.loci.ato_deck_builder_server.dto.PerkNodeDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -109,8 +110,8 @@ public class PerksServiceImpl implements PerksService {
         logger.info("Total PerkImages cache size: {} MB", totalSizeInMB);
     }
 
-    public Flux<PerkNode> getPerkNodes() {
-        return perkNodeRepository.findAll();
+    public Flux<PerkNodeDTO> getPerkNodes() {
+        return perkNodeRepository.getAllPerkNodeData();
     }
 
     public Mono<Void> deletePerk(String id) {
