@@ -1,32 +1,49 @@
-name: Docker
+name: build-and-push
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+    # Don't rebuild when Flux only bumps the image tag in cluster/
+    paths-ignore:
+      - 'cluster/**'
+      - 'clusters/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
+    # Skip commits made by Flux image-update automation
+    if: github.actor != 'fluxcdbot'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Get previous version
-        id: prev_version
-        run: |
-          echo "PREV_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Bump Version
-        id: bump
-        uses: nnichols/maven-version-bump-action@v5
+      - uses: docker/login-action@v3
         with:
-          github-token: ${{ secrets.github_token }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Compute image tag
+        id: meta
         run: |
-          docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }} ghcr.io
-          docker build -t ghcr.io/locistar/ato-deckbuilder-server:${{ steps.bump.outputs.version }} .
-          docker push ghcr.io/locistar/ato-deckbuilder-server:${{ steps.bump.outputs.version }}
-        if: env.PREV_VERSION != steps.bump.outputs.version
+          ts=$(date -u +%Y%m%d%H%M%S)
+          echo "tag=${ts}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/locistar/ato-deckbuilder-server:${{ steps.meta.outputs.tag }}
+            ghcr.io/locistar/ato-deckbuilder-server:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

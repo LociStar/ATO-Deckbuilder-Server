@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ato-deckbuilder-deployment
+  namespace: ato-deckbuilder
+  labels:
+    app: ato-deckbuilder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ato-deckbuilder
+  template:
+    metadata:
+      labels:
+        app: ato-deckbuilder
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: ato-deckbuilder
+          image: ghcr.io/locistar/ato-deckbuilder-server:3.1.0 # {"$imagepolicy": "flux-system:ato-deckbuilder-server"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: ato-deckbuilder-config
+            - secretRef:
+                name: ato-deckbuilder-secret
+          volumeMounts:
+            - name: image-path
+              mountPath: /card_images
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "100m"
+            limits:
+              memory: "768Mi"
+              cpu: "750m"
+      volumes:
+        - name: image-path
+          persistentVolumeClaim:
+            claimName: ato-deckbuilder-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ato-deckbuilder-service
+  namespace: ato-deckbuilder
+  labels:
+    app: ato-deckbuilder
+spec:
+  selector:
+    app: ato-deckbuilder
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ato-deckbuilder-server-ingress
+  namespace: ato-deckbuilder
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    cert-manager.io/issuer: prod-issuer
+    cert-manager.io/issuer-group: cert-manager.k8s.cloudflare.com
+    cert-manager.io/issuer-kind: OriginClusterIssuer
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - api.ato-deckbuilder.com
+      secretName: ato-deckbuilder-server-tls
+  rules:
+    - host: api.ato-deckbuilder.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ato-deckbuilder-service
+                port:
+                  number: 8080
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ato-deckbuilder-pv
+  labels:
+    type: local
+  annotations:
+    # Don't let Flux delete this PV — it holds card image data on a hostPath
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  storageClassName: local-path
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/ato-deckbuilder/card_images"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ato-deckbuilder-pvc
+  namespace: ato-deckbuilder
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ato-deckbuilder-config
+  namespace: ato-deckbuilder
+data:
+  SPRING_R2DBC_URL: r2dbc:postgresql://192.168.2.193:31797/ato
+  SPRING_R2DBC_NAME: ato
+  SPRING_R2DBC_PROPERTIES_SCHEMA: public
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://account.ato-deckbuilder.com/realms/ATO-Deckbuilder
+  IMAGE_PATH: /card_images
+  keycloak_clientId: server
+  keycloak_base_url: https://account.ato-deckbuilder.com
