@@ -1,0 +1,16 @@
+ALTER TABLE card_detail
+    ADD COLUMN auras                                TEXT[],
+    ADD COLUMN curses                               TEXT[],
+    ADD COLUMN add_card_only_check_aux_types       BOOLEAN,
+    ADD COLUMN add_card_type_based_on_hero_class   TEXT[],
+    ADD COLUMN add_card_list_based_on_hero_class   TEXT[],
+    ADD COLUMN add_vanish_to_deck                   BOOLEAN,
+    ADD COLUMN choose_one_of_available_auras       BOOLEAN,
+    ADD COLUMN copy_config                          TEXT,
+    ADD COLUMN curse_charges_sides                  INTEGER,
+    ADD COLUMN pet_temporal                         BOOLEAN,
+    ADD COLUMN pet_temporal_attack                  BOOLEAN,
+    ADD COLUMN pet_temporal_cast                    BOOLEAN,
+    ADD COLUMN pet_temporal_move_to_center          BOOLEAN,
+    ADD COLUMN pet_temporal_move_to_back            BOOLEAN,
+    ADD COLUMN pet_temporal_fade_out_delay          DOUBLE PRECISION;

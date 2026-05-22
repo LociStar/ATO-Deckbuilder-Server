@@ -1,0 +1,17 @@
+package com.loci.ato_deck_builder_server.database.objects;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.relational.core.mapping.Column;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class NamedCount {
+    @Column("k")
+    private String key;
+
+    @Column("n")
+    private long count;
+}
