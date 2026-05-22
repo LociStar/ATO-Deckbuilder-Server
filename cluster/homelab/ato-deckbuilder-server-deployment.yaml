@@ -19,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: ato-deckbuilder
-          image: ghcr.io/locistar/ato-deckbuilder-server:3.1.0 # {"$imagepolicy": "flux-system:ato-deckbuilder-server"}
+          image: ghcr.io/locistar/ato-deckbuilder-server:20260522093634-82f2cab05d25663da55d484b7a3cc2c83ce8df2a # {"$imagepolicy": "flux-system:ato-deckbuilder-server"}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
