@@ -34,6 +34,15 @@ public class Deck {
     @Column("user_id")
     private String userId;
 
+    @Column("shards")
+    private Integer shards;
+
+    @Column("difficulty")
+    private String difficulty;
+
+    @Column("tags")
+    private String[] tags;
+
     public WebDeck toWebDeck() {
         WebDeck webDeck = new WebDeck();
         webDeck.setId(this.getId());
@@ -42,6 +51,9 @@ public class Deck {
         webDeck.setLikes(this.getLikes());
         webDeck.setCharacterId(this.getCharacterId());
         webDeck.setUserId(this.getUserId());
+        webDeck.setShards(this.getShards());
+        webDeck.setDifficulty(this.getDifficulty());
+        webDeck.setTags(this.getTags());
         return webDeck;
     }
 }

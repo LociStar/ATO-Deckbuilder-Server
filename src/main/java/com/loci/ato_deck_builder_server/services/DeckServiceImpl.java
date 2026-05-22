@@ -2,12 +2,15 @@ package com.loci.ato_deck_builder_server.services;
 
 import com.loci.ato_deck_builder_server.api.deck.objects.PagedWebDeck;
 import com.loci.ato_deck_builder_server.api.deck.objects.WebDeck;
+import com.loci.ato_deck_builder_server.database.objects.CharacterCard;
 import com.loci.ato_deck_builder_server.database.objects.Deck;
 import com.loci.ato_deck_builder_server.database.objects.DeckCard;
 import com.loci.ato_deck_builder_server.database.objects.WebCard;
 import com.loci.ato_deck_builder_server.database.repositories.CardRepository;
 import com.loci.ato_deck_builder_server.database.repositories.DeckCardRepository;
 import com.loci.ato_deck_builder_server.database.repositories.DeckRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,21 +25,42 @@ import java.util.stream.Collectors;
 @Service
 public class DeckServiceImpl implements DeckService {
 
+    private static final Logger logger = LoggerFactory.getLogger(DeckServiceImpl.class);
+
+    private static final Map<String, Integer> SHARD_COST = Map.of(
+            "Common", 60,
+            "Uncommon", 180,
+            "Rare", 420,
+            "Epic", 1260,
+            "Mythic", 1940
+    );
+
+    private static final Set<String> ALLOWED_DIFFICULTIES = Set.of(
+            "ADVENTURER",
+            "MADNESS 1", "MADNESS 2", "MADNESS 3", "MADNESS 4", "MADNESS 5"
+    );
+
+    private static final int MAX_TAGS = 3;
+    private static final int MAX_TAG_LENGTH = 12;
+
     private final DeckRepository deckRepository;
     private final CardRepository cardRepository;
     private final DeckCardRepository deckCardRepository;
     private final KeycloakService keycloakService;
+    private final CharacterService characterService;
 
     private final ConcurrentHashMap<String, PagedWebDeck> cache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, Set<String>> deckIdToCacheKeys = new ConcurrentHashMap<>();
 
     @Autowired
     public DeckServiceImpl(DeckRepository deckRepository, CardRepository cardRepository,
-                           DeckCardRepository deckCardRepository, KeycloakService keycloakService) {
+                           DeckCardRepository deckCardRepository, KeycloakService keycloakService,
+                           CharacterService characterService) {
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
         this.deckCardRepository = deckCardRepository;
         this.keycloakService = keycloakService;
+        this.characterService = characterService;
     }
 
     @Override
@@ -138,35 +162,45 @@ public class DeckServiceImpl implements DeckService {
 
     @Override
     public Mono<Integer> uploadDeck(WebDeck webDeck, String username) {
-        Mono<Integer> savedDeck = deckRepository.insertDeck(webDeck.getTitle(), webDeck.getDescription(), webDeck.getCharacterId(), username);
+        String difficulty = normalizeDifficulty(webDeck.getDifficulty());
+        String[] tags = normalizeTags(webDeck.getTags());
 
-        return savedDeck.flatMap(id -> {
-            List<DeckCard> cards = webDeck.toDeckCards(id);
-            return deckCardRepository.saveAll(cards)
-                    .then(Mono.fromRunnable(cache::clear))
-                    .thenReturn(id);
+        return computeShards(webDeck).flatMap(shards -> {
+            Mono<Integer> savedDeck = deckRepository.insertDeck(
+                    webDeck.getTitle(), webDeck.getDescription(), webDeck.getCharacterId(), username,
+                    shards, difficulty, tags);
+
+            return savedDeck.flatMap(id -> {
+                List<DeckCard> cards = webDeck.toDeckCards(id);
+                return deckCardRepository.saveAll(cards)
+                        .then(Mono.fromRunnable(cache::clear))
+                        .thenReturn(id);
+            });
         });
     }
 
     @Override
     public Mono<Void> updateDeck(int deckId, WebDeck webDeck, String username) {
+        String difficulty = normalizeDifficulty(webDeck.getDifficulty());
+        String[] tags = normalizeTags(webDeck.getTags());
+
         return deckRepository.getUserId(deckId)
                 .flatMap(userId -> {
                     if (!userId.equals(username)) {
                         return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this deck"));
                     }
-                    // Delete existing cards and update deck
-                    return deckCardRepository.deleteByDeckId(deckId)
-                            .thenMany(Flux.fromIterable(webDeck.toDeckCards(deckId)))
-                            .flatMap(deckCardRepository::save)
-                            .then(deckRepository.updateDeck(deckId, webDeck.getTitle(), webDeck.getDescription(), webDeck.getCharacterId()))
-                            .doOnSuccess(aVoid -> {
-                                // Clear the cache entries associated with the modified deck
-                                Set<String> cacheKeys = deckIdToCacheKeys.remove(deckId);
-                                if (cacheKeys != null) {
-                                    cacheKeys.forEach(cache::remove);
-                                }
-                            });
+                    return computeShards(webDeck).flatMap(shards ->
+                            deckCardRepository.deleteByDeckId(deckId)
+                                    .thenMany(Flux.fromIterable(webDeck.toDeckCards(deckId)))
+                                    .flatMap(deckCardRepository::save)
+                                    .then(deckRepository.updateDeck(deckId, webDeck.getTitle(), webDeck.getDescription(), webDeck.getCharacterId(),
+                                            shards, difficulty, tags))
+                                    .doOnSuccess(aVoid -> {
+                                        Set<String> cacheKeys = deckIdToCacheKeys.remove(deckId);
+                                        if (cacheKeys != null) {
+                                            cacheKeys.forEach(cache::remove);
+                                        }
+                                    }));
                 });
     }
 
@@ -230,6 +264,31 @@ public class DeckServiceImpl implements DeckService {
                 .map(count -> count == 1);
     }
 
+    @Override
+    public Mono<Long> backfillShards() {
+        logger.info("Starting shards backfill");
+        return deckRepository.findAll()
+                .concatMap(deck -> getDeckCards(deck)
+                        .collectList()
+                        .flatMap(cards -> {
+                            WebDeck webDeck = deck.toWebDeck();
+                            webDeck.setCardList(cards);
+                            return computeShards(webDeck).flatMap(newShards -> {
+                                Integer oldShards = deck.getShards();
+                                if (oldShards != null && oldShards.intValue() == newShards) {
+                                    return Mono.just(0);
+                                }
+                                logger.info("Deck {} shards {} -> {}", deck.getId(), oldShards, newShards);
+                                return deckRepository.updateShards(deck.getId(), newShards).thenReturn(1);
+                            });
+                        }))
+                .reduce(0L, (acc, updated) -> acc + updated)
+                .doOnSuccess(count -> {
+                    cache.clear();
+                    logger.info("Shards backfill complete: {} decks updated", count);
+                });
+    }
+
     // Private helper methods
     private Mono<WebDeck> createWebDeck(Deck deck) {
         return getDeckCards(deck)
@@ -261,6 +320,90 @@ public class DeckServiceImpl implements DeckService {
         webDeck.setCardList(cards);
         webDeck.setUsername(username);
         return webDeck;
+    }
+
+    private Mono<Integer> computeShards(WebDeck webDeck) {
+        List<WebCard> cardList = webDeck.getCardList();
+        if (cardList == null || cardList.isEmpty()) return Mono.just(0);
+
+        String characterId = webDeck.getCharacterId();
+        if (characterId == null) {
+            return Mono.just(computeShards(cardList, List.of()));
+        }
+
+        return characterService.getCharacterDeck(characterId)
+                .collectList()
+                .map(baseCards -> computeShards(cardList, baseCards));
+    }
+
+    private int computeShards(List<WebCard> cardList, List<CharacterCard> baseCards) {
+        Map<String, Integer> baseCardCounts = new HashMap<>();
+        if (baseCards != null) {
+            for (CharacterCard baseCard : baseCards) {
+                baseCardCounts.merge(baseCard.getId(), 1, Integer::sum);
+            }
+        }
+
+        int total = 0;
+        for (WebCard card : cardList) {
+            String version = card.getVersion();
+            String baseCardId = ("No\n".equals(version) || version == null)
+                    ? card.getId()
+                    : card.getId().replaceAll("[ab]$", "");
+
+            int baseCardCount = baseCardCounts.getOrDefault(baseCardId, 0);
+            if (baseCardCount > 0) {
+                Integer baseCardCost = SHARD_COST.get(card.getRarity());
+                if (baseCardCost != null) {
+                    total -= baseCardCost;
+                }
+                baseCardCounts.put(baseCardId, baseCardCount - 1);
+            }
+
+            Integer base = SHARD_COST.get(card.getRarity());
+            int baseCost = base == null ? 0 : base;
+
+            String originalRarity = card.getOriginalRarity();
+            if (originalRarity == null) {
+                total += baseCost;
+            } else if (originalRarity.equals(card.getRarity())) {
+                total += baseCost * 2;
+            } else {
+                Integer orig = SHARD_COST.get(originalRarity);
+                int originalCost = orig == null ? 0 : orig;
+                total += originalCost + baseCost;
+            }
+        }
+        return total;
+    }
+
+    private String normalizeDifficulty(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return null;
+        String upper = trimmed.toUpperCase();
+        if (!ALLOWED_DIFFICULTIES.contains(upper)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unknown difficulty: " + raw);
+        }
+        return upper;
+    }
+
+    private String[] normalizeTags(String[] raw) {
+        if (raw == null || raw.length == 0) return null;
+        List<String> out = new ArrayList<>();
+        for (String tag : raw) {
+            if (tag == null) continue;
+            String trimmed = tag.trim();
+            if (trimmed.isEmpty()) continue;
+            String upper = trimmed.toUpperCase();
+            if (upper.length() > MAX_TAG_LENGTH) {
+                upper = upper.substring(0, MAX_TAG_LENGTH);
+            }
+            out.add(upper);
+            if (out.size() >= MAX_TAGS) break;
+        }
+        return out.isEmpty() ? null : out.toArray(new String[0]);
     }
 
     // Helper class to hold decks and total count

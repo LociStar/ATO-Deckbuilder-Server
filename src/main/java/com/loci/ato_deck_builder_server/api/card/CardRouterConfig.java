@@ -13,6 +13,8 @@ public class CardRouterConfig {
     protected RouterFunction<ServerResponse> cardRoutes(CardHandler cardHandler) {
         return RouterFunctions.route()
                 .GET("/card", cardHandler::getFilteredCards)
+                .GET("/card/library", cardHandler::getLibrary)
+                .GET("/card/library/stats", cardHandler::getLibraryStats)
                 .GET("/cardClass/{id}", cardHandler::getCardsByCardClass)
                 .GET("/card/image/{id}", cardHandler::getCardImageUrl)
                 .GET("/card/sprite/{id}", cardHandler::getCardSpriteUrl)

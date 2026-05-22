@@ -146,3 +146,5 @@ data:
   IMAGE_PATH: /card_images
   keycloak_clientId: server
   keycloak_base_url: https://account.ato-deckbuilder.com
+  SHARDS_BACKFILL: true
+  APP_GAME_VERSION: 1.7.5

@@ -21,4 +21,6 @@ public interface DeckService {
     Mono<Void> unlikeDeck(int deckId, String username);
 
     Mono<Boolean> isLiked(int deckId, String username);
+
+    Mono<Long> backfillShards();
 }

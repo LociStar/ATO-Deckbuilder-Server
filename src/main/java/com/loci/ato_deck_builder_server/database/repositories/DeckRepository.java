@@ -9,11 +9,12 @@ import reactor.core.publisher.Mono;
 
 public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
     @Query("""
-            INSERT INTO deck (title, description, char_id, user_id)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO deck (title, description, char_id, user_id, shards, difficulty, tags)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING deck_id
             """)
-    Mono<Integer> insertDeck(String title, String description, String characterId, String userId);
+    Mono<Integer> insertDeck(String title, String description, String characterId, String userId,
+                             int shards, String difficulty, String[] tags);
 
     @Query("""
             SELECT * FROM deck
@@ -41,10 +42,14 @@ public interface DeckRepository extends R2dbcRepository<Deck, Integer> {
 
     @Query("""
             UPDATE deck
-            SET title = $2, description = $3, char_id = $4
+            SET title = $2, description = $3, char_id = $4, shards = $5, difficulty = $6, tags = $7
             WHERE deck_id = $1
             """)
-    Mono<Void> updateDeck(int deckId, String title, String description, String characterId);
+    Mono<Void> updateDeck(int deckId, String title, String description, String characterId,
+                          int shards, String difficulty, String[] tags);
+
+    @Query("UPDATE deck SET shards = $2 WHERE deck_id = $1")
+    Mono<Void> updateShards(int deckId, int shards);
 
     @Query("""
             SELECT user_id FROM deck

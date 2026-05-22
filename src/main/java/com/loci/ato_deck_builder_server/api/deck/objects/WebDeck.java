@@ -51,6 +51,9 @@ public class WebDeck extends Deck {
         deck.setLikes(this.getLikes());
         deck.setCharacterId(this.getCharacterId());
         deck.setUserId(this.getUserId());
+        deck.setShards(this.getShards());
+        deck.setDifficulty(this.getDifficulty());
+        deck.setTags(this.getTags());
         return deck;
     }
 }

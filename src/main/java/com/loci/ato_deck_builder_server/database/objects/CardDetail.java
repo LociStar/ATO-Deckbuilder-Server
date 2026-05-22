@@ -59,6 +59,21 @@ public class CardDetail {
     @Column("add_card_vanish")
     private boolean addCardVanish;
 
+    @Column("add_card_only_check_aux_types")
+    private boolean addCardOnlyCheckAuxTypes;
+
+    @Column("add_card_type_based_on_hero_class")
+    private String[] addCardTypeBasedOnHeroClass;
+
+    @Column("add_card_list_based_on_hero_class")
+    private String[] addCardListBasedOnHeroClass;
+
+    @Column("add_vanish_to_deck")
+    private boolean addVanishToDeck;
+
+    @Column("auras")
+    private String[] auras;
+
     @Column("aura")
     private String aura;
 
@@ -119,6 +134,12 @@ public class CardDetail {
     @Column("autoplay_end_turn")
     private boolean autoplayEndTurn;
 
+    @Column("choose_one_of_available_auras")
+    private boolean chooseOneOfAvailableAuras;
+
+    @Column("copy_config")
+    private String copyConfig;
+
     @Column("base_card")
     private String baseCard;
 
@@ -157,6 +178,12 @@ public class CardDetail {
 
     @Column("curse3")
     private String curse3;
+
+    @Column("curses")
+    private String[] curses;
+
+    @Column("curse_charges_sides")
+    private int curseChargesSides;
 
     @Column("curse_charges")
     private int curseCharges;
@@ -500,6 +527,24 @@ public class CardDetail {
 
     @Column("pet_size")
     private String petSize;
+
+    @Column("pet_temporal")
+    private boolean petTemporal;
+
+    @Column("pet_temporal_attack")
+    private boolean petTemporalAttack;
+
+    @Column("pet_temporal_cast")
+    private boolean petTemporalCast;
+
+    @Column("pet_temporal_move_to_center")
+    private boolean petTemporalMoveToCenter;
+
+    @Column("pet_temporal_move_to_back")
+    private boolean petTemporalMoveToBack;
+
+    @Column("pet_temporal_fade_out_delay")
+    private double petTemporalFadeOutDelay;
 
     @Column("playable")
     private boolean playable;
